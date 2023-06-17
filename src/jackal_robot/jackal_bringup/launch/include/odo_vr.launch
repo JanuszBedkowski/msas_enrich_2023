@@ -1,0 +1,11 @@
+<launch>
+
+    <node name="odo_vr" type="odo_vr_node" pkg="odo_vr" output="screen">
+      <param name="cloud_topic" value="/output"/>
+      <!--<param name="cloud_topic" value="/operational"/>-->
+      <param name="location" value="/home/robot/enrich2019data/"/>
+      <param name="target_frame" value="odom"/>
+      <param name="cloud_frame" value="footprint"/>
+    </node>
+    
+</launch>

@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<launch>
+
+  <include file="$(find jackal_description)/launch/description.launch" />
+
+  <node pkg="jackal_base" type="jackal_node" name="jackal_node">
+    <param name="wireless_interface" value="wlan0" />
+    <param name="port" value="/dev/ttyACM0"/>
+  </node>
+
+  <!-- TODO: Eliminate this by compiling the necessary message definitions into jackal_base. -->
+  <node pkg="rosserial_python" type="message_info_service.py" name="rosserial_message_info" />
+
+  <!-- Differential controller and EKF-->
+  <include file="$(find jackal_control)/launch/control.launch" />
+
+  <!-- Teleoperation via joystick and rviz interactive markers -->
+  <include file="$(find jackal_control)/launch/teleop.launch" />
+
+
+  <!-- Diagnostic Aggregator for robot monitor usage -->
+  <node pkg="diagnostic_aggregator" type="aggregator_node" name="diagnostic_aggregator">
+    <rosparam command="load" file="$(find jackal_base)/config/diagnostic_analyzers.yaml" />
+  </node>
+
+  <node pkg="mandeye" type="mandeye" name="mandeye" />
+</launch>

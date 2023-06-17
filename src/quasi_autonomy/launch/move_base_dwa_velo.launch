@@ -1,0 +1,158 @@
+<?xml version="1.0"?>
+
+<launch>
+  <param name="tf_prefix" value="husky"/>
+  <arg name="no_static_map" default="true"/>
+    <remap to="/husky_velocity_controller/cmd_vel" from="cmd_vel"/>
+    <remap to="/odometry/filtered_imu" from="odom"/>
+
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen" clear_params="true">
+
+    <param name="base_local_planner" value="dwa_local_planner/DWAPlannerROS" />
+    <param name="base_global_planner" value="navfn/NavfnROS" />
+    <param name="controller_frequency" value="10.0" />
+
+    <param name="recovery_behavior_enabled" value="false" />
+    <param name="clearing_rotation_allowed" value="false" />
+<rosparam>
+controller_frequency: 5.0
+recovery_behaviour_enabled: false
+
+NavfnROS:
+  allow_unknown: true # Specifies whether or not to allow navfn to create plans that traverse unknown space.
+  default_tolerance: 0.1 # A tolerance on the goal point for the planner.
+
+
+DWAPlannerROS:
+  # Robot configuration parameters
+  acc_lim_x: 2.5
+  acc_lim_y: 0
+  acc_lim_th: 3.2
+
+  max_vel_x: 0.6
+  min_vel_x: -0.35
+  max_vel_y: 0
+  min_vel_y: 0
+
+  max_trans_vel: 0.5
+  min_trans_vel: 0.2
+  max_rot_vel: 1.0
+  min_rot_vel: 0.2
+
+  # Goal Tolerance Parameters
+  yaw_goal_tolerance: 3.14
+  xy_goal_tolerance: 0.5
+  latch_xy_goal_tolerance: false
+
+  # # Forward Simulation Parameters
+  sim_time: 2.0
+  sim_granularity: 0.02
+  vx_samples: 6
+  vy_samples: 0
+  vtheta_samples: 20
+  penalize_negative_x: true
+
+  # # Trajectory scoring parameters
+  # path_distance_bias: 32.0 # The weighting for how much the controller should stay close to the path it was given
+  # goal_distance_bias: 24.0 # The weighting for how much the controller should attempt to reach its local goal, also controls speed
+  # occdist_scale: 0.01 # The weighting for how much the controller should attempt to avoid obstacles
+  # forward_point_distance: 0.325 # The distance from the center point of the robot to place an additional scoring point, in meters
+  # stop_time_buffer: 0.2  # The amount of time that the robot must stThe absolute value of the veolicty at which to start scaling the robot's footprint, in m/sop before a collision in order for a trajectory to be considered valid in seconds
+  # scaling_speed: 0.25 # The absolute value of the veolicty at which to start scaling the robot's footprint, in m/s
+  # max_scaling_factor: 0.2 # The maximum factor to scale the robot's footprint by
+
+  # # Oscillation Prevention Parameters
+  # oscillation_reset_dist: 0.25 #How far the robot must travel in meters before oscillation flags are reset (double, default: 0.05)
+</rosparam>
+<rosparam ns="global_costmap">
+footprint: [[-0.5, -0.33], [-0.5, 0.33], [0.5, 0.33], [0.5, -0.33]]
+footprint_padding: 0.01
+
+robot_base_frame: base_link
+update_frequency: 4.0
+publish_frequency: 3.0
+transform_tolerance: 0.5
+
+resolution: 0.5
+
+obstacle_range: 5.5
+raytrace_range: 6.0
+
+#layer definitions
+static:
+    map_topic: /map
+    subscribe_to_updates: true
+
+obstacles_laser0:
+    observation_sources: velodyne0
+    velodyne0: {data_type: PointCloud2, clearing: true, marking: true, topic: /husky/rear_velodyne/velodyne_points, max_obstacle_height: 1.5, min_obstacle_height: 0.5}
+
+inflation:
+    inflation_radius: 0.2
+</rosparam>
+<rosparam ns="local_costmap">
+
+footprint: [[-0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [0.5, -0.5]]
+footprint_padding: 0.01
+
+robot_base_frame: base_link
+update_frequency: 4.0
+publish_frequency: 10.0
+transform_tolerance: 0.5
+
+resolution: 0.04
+
+obstacle_range: 25
+raytrace_range: 25
+
+#layer definitions
+static:
+    map_topic: /map
+    subscribe_to_updates: true
+
+obstacles_laser0:
+    observation_sources: velodyne0
+    velodyne0: {data_type: PointCloud2, clearing: true, marking: true, topic: /husky/rear_velodyne/velodyne_points, max_obstacle_height: 1.5, min_obstacle_height: 0.5}
+
+obstacles_laser1:
+    observation_sources: velodyne1
+    velodyne1: {data_type: PointCloud2, clearing: true, marking: true, topic: /husky/front_velodyne/velodyne_points, max_obstacle_height: 1, min_obstacle_height: 0.2}
+
+obstacles_laser2:
+    observation_sources: velodyne1
+    velodyne1: {data_type: PointCloud2, clearing: false, marking: true, topic: /husky/front_velodyne/velodyne_points, max_obstacle_height: -0.5, min_obstacle_height: -10}
+
+
+
+inflation:
+    inflation_radius: 50
+    cost_scaling_factor: 1
+</rosparam>
+<rosparam ns="local_costmap" >
+global_frame: odom
+rolling_window: true
+track_unknown_space: false
+
+plugins:
+  - {name: obstacles_laser0,          type: "costmap_2d::ObstacleLayer"}
+  - {name: obstacles_laser1,          type: "costmap_2d::ObstacleLayer"}
+  - {name: obstacles_laser2,          type: "costmap_2d::ObstacleLayer"}
+  - {name: inflation,                 type: "costmap_2d::InflationLayer"}
+
+</rosparam>
+<rosparam ns="global_costmap" >
+global_frame: odom
+rolling_window: true
+track_unknown_space: false
+
+plugins:
+  - {name: obstacles_laser0,           type: "costmap_2d::ObstacleLayer"}
+  - {name: inflation,                 type: "costmap_2d::InflationLayer"}
+</rosparam>
+
+<param name="global_costmap/width" value="100.0"/>
+<param name="global_costmap/height" value="100.0"/>
+<param name="local_costmap/width" value="30.0"/>
+<param name="local_costmap/height" value="30.0"/>
+</node>
+</launch>

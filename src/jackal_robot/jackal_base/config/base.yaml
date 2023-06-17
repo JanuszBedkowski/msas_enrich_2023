@@ -1,0 +1,9 @@
+require:
+  publishers:
+    - status
+    - feedback
+    - imu/data_raw
+    - navsat/nmea_sentence
+  subscribers:
+    - cmd_drive
+    - wifi_connected

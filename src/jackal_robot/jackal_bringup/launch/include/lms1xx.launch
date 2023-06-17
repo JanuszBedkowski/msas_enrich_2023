@@ -1,0 +1,9 @@
+<launch>
+  <node pkg="tf" type="static_transform_publisher" name="tf_front_laser" args="0.3 0 0.25 0 0 0 base_link front_laser 100"/>
+  <arg name="host" default="192.168.1.205" />
+  <node pkg="lms1xx" name="lms1xx" type="LMS1xx_node">
+      <param name="host" value="$(arg host)" />
+      <param name="frame_id" value="front_laser"/>
+      <remap from="scan" to="/front/scan"/>
+  </node>
+</launch>

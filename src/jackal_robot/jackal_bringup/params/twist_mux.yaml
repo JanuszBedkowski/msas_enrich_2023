@@ -1,0 +1,14 @@
+topics:
+- name    : joy
+  topic   : /cmd_vel
+  timeout : 0.5
+  priority: 10
+- name    : autonomy
+  topic   : /move_base/cmd_vel
+  timeout : 0.5
+  priority: 2
+locks:
+- name    : e_stop
+  topic   : e_stop
+  timeout : 0.0
+  priority: 255
