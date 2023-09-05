@@ -181,7 +181,7 @@ int mission_next_goal_index = 0;
 
 
 //pub_path = nh.advertise< nav_msgs::Path > ("path", 1);
-bool save_buckets(const BucketMap &buckets, const std::string &path);
+bool save_buckets(BucketMap &buckets, const std::string &path);
 bool load_buckets(BucketMap &buckets, const std::string &path);
 
 void update_rgd(Eigen::Vector3d b, std::map<unsigned long long int, Bucket> &buckets,
@@ -2233,92 +2233,93 @@ void update_rgd(Eigen::Vector3d b, std::map<unsigned long long int, Bucket> &buc
     }
 }
 
-bool save_buckets(const BucketMap &buckets, const std::string &path)
+bool save_buckets(BucketMap &buckets, const std::string &path)
 {
-    if (std::ofstream file = std::ofstream(path, std::ios::out | std::ios::binary))
-    {
-        nlohmann::json buckets_json = {};
+    nlohmann::json jj;
+    nlohmann::json jbuckets;
+    for(std::map<unsigned long long int, Bucket>::iterator it = buckets.begin(); it != buckets.end(); ++it) {
+        const auto key_str = std::to_string(it->first);
+        nlohmann::json jbucket{
+            {"key", key_str},
+            {"index_begin", it->second.index_begin},
+            {"index_end", it->second.index_end},
+            {"number_of_points", it->second.number_of_points},
+            {"mean_x", it->second.mean.x()},
+            {"mean_y", it->second.mean.y()},
+            {"mean_z", it->second.mean.z()},
+            {"cov_00", it->second.cov(0, 0)},
+            {"cov_01", it->second.cov(0, 1)},
+            {"cov_02", it->second.cov(0, 2)},
+            {"cov_10", it->second.cov(1, 0)},
+            {"cov_11", it->second.cov(1, 1)},
+            {"cov_12", it->second.cov(1, 2)},
+            {"cov_20", it->second.cov(2, 0)},
+            {"cov_21", it->second.cov(2, 1)},
+            {"cov_22", it->second.cov(2, 2)}
+        };
 
-        //for(const auto &b:buckets)
-       // {
-        //    pcl::PointXYZ p;
-        //    p.x = b.second.mean.x();
-        //    p.y = b.second.mean.y();
-        //    p.z = b.second.mean.z();
-        //    msg->points.push_back(p);
-        //    point_count++;
-        //}
-
-        /*for (const auto &[key, bucket] : buckets)
-        {
-            const auto key_str = std::to_string(key);
-
-            buckets_json[key_str] = {};
-            //
-            buckets_json[key_str]["index_begin"] = bucket.index_begin;
-            buckets_json[key_str]["index_end"] = bucket.index_end;
-            buckets_json[key_str]["number_of_points"] = bucket.number_of_points;
-            //
-            buckets_json[key_str]["mean"]["x"] = bucket.mean.x();
-            buckets_json[key_str]["mean"]["y"] = bucket.mean.y();
-            buckets_json[key_str]["mean"]["z"] = bucket.mean.z();
-            //
-            buckets_json[key_str]["cov"]["00"] = bucket.cov(0, 0);
-            buckets_json[key_str]["cov"]["01"] = bucket.cov(0, 1);
-            buckets_json[key_str]["cov"]["02"] = bucket.cov(0, 2);
-            //
-            buckets_json[key_str]["cov"]["10"] = bucket.cov(1, 0);
-            buckets_json[key_str]["cov"]["11"] = bucket.cov(1, 1);
-            buckets_json[key_str]["cov"]["12"] = bucket.cov(1, 2);
-            //
-            buckets_json[key_str]["cov"]["20"] = bucket.cov(2, 0);
-            buckets_json[key_str]["cov"]["21"] = bucket.cov(2, 1);
-            buckets_json[key_str]["cov"]["22"] = bucket.cov(2, 2);
-        }
-
-        file << buckets_json.dump(2);*/
-
-        return true;
+        jbuckets.push_back(jbucket);
     }
+    jj["buckets"] = jbuckets;
 
-    return false;
+    std::ofstream fs(path);
+    if (!fs.good()){
+        return false;
+    }
+    fs << jj.dump(2);
+    fs.close();
+
+    return true;
 }
 
 bool load_buckets(BucketMap &buckets, const std::string &path)
 {
-    /*if (std::ifstream file = std::ifstream(path, std::ios::in | std::ios::binary))
+    buckets.clear();
+    try
     {
-        nlohmann::json buckets_json = nlohmann::json::parse(file);
-
-        for (const auto &[key, bucket_json] : buckets_json.items())
-        {
-            Bucket bucket = {};
-            //
-            bucket.index_begin = bucket_json["index_begin"];
-            bucket.index_end = bucket_json["index_end"];
-            bucket.number_of_points = bucket_json["number_of_points"];
-            //
-            bucket.mean.x() = bucket_json["mean"]["x"];
-            bucket.mean.y() = bucket_json["mean"]["y"];
-            bucket.mean.z() = bucket_json["mean"]["z"];
-            //
-            bucket.cov(0, 0) = bucket_json["cov"]["00"];
-            bucket.cov(0, 1) = bucket_json["cov"]["01"];
-            bucket.cov(0, 2) = bucket_json["cov"]["02"];
-            //
-            bucket.cov(1, 0) = bucket_json["cov"]["10"];
-            bucket.cov(1, 1) = bucket_json["cov"]["11"];
-            bucket.cov(1, 2) = bucket_json["cov"]["12"];
-            //
-            bucket.cov(2, 0) = bucket_json["cov"]["20"];
-            bucket.cov(2, 1) = bucket_json["cov"]["21"];
-            bucket.cov(2, 2) = bucket_json["cov"]["22"];
-
-            buckets[std::stoull(key)] = bucket;
+        std::ifstream fs(path);
+        if (!fs.good()){
+            return false;
         }
+        nlohmann::json data = nlohmann::json::parse(fs);
+        fs.close();
 
+        for (const auto &jbucket : data["buckets"])
+        {
+            //struct Bucket{
+            //    long long unsigned int index_begin;
+            //    long long unsigned int index_end;
+            //    long long unsigned int number_of_points;
+            //    Eigen::Vector3d mean;
+            //    Eigen::Matrix3d cov;
+            //};
+
+            Bucket bucket;
+            bucket.index_begin = jbucket["index_begin"];
+            bucket.index_end = jbucket["index_end"];
+            bucket.number_of_points = jbucket["number_of_points"];
+            bucket.mean.x() = jbucket["mean_x"];
+            bucket.mean.y() = jbucket["mean_y"];
+            bucket.mean.z() = jbucket["mean_z"];
+            bucket.cov(0, 0) = jbucket["cov_00"];
+            bucket.cov(0, 1) = jbucket["cov_01"];
+            bucket.cov(0, 2) = jbucket["cov_02"];
+            bucket.cov(1, 0) = jbucket["cov_10"];
+            bucket.cov(1, 1) = jbucket["cov_11"];
+            bucket.cov(1, 2) = jbucket["cov_12"];
+            bucket.cov(2, 0) = jbucket["cov_20"];
+            bucket.cov(2, 1) = jbucket["cov_21"];
+            bucket.cov(2, 2) = jbucket["cov_22"];
+
+            //std::map<unsigned long long int, Bucket> buckets;
+            unsigned long long int index_of_bucket = jbucket["key"];//std::stoull(jbucket["key"]);
+            buckets[index_of_bucket] = bucket;
+        }
         return true;
     }
-*/
-    return false;
+    catch (std::exception &e)
+    {
+        std::cout << "cant load session: " << e.what() << std::endl;
+        return false;
+    }
 }
