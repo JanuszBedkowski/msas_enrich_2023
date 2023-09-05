@@ -7,55 +7,8 @@
 #include "std_msgs/Int32.h"
 #include "std_msgs/Float32.h"
 #include "geometry_msgs/Twist.h"
-
-
-
-#if 0
-int main(int argc, char **argv)
-{
-    std::cout << "start mandeye unicorn" << std::endl;
-    ros::init(argc, argv, "mandeye");
-    ros::NodeHandle nh;
-    ros::Publisher pc_pub = nh.advertise<pcl::PointCloud<pcl::PointXYZI> > ("cloud", 1);
-
-    ros::Rate loop_rate(1);
-
-    while (ros::ok())
-    {
-        pcl::PointCloud<pcl::PointXYZI>::Ptr msg(new pcl::PointCloud<pcl::PointXYZI>);
-
-        size_t point_count = 100;
-
-        msg->header.frame_id = "odom";
-        msg->height = 1;
-        msg->width = point_count;
-        pcl_conversions::toPCL(ros::Time::now(), msg->header.stamp);
-
-        for (size_t i=0;i<point_count;++i)
-        {
-            pcl::PointXYZI p;
-            p.x = -1.5  + 3 * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            p.y = - 0.5 + 1 * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            p.z = - 1 + 2 * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            p.intensity = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            msg->points.push_back(p);
-        }
-        std::cout << "publish pc" << std::endl;
-        pc_pub.publish(*msg);
-
-
-        ros::spinOnce();
-
-        loop_rate.sleep();
-    }
-  return 0;
-}
-#endif
-
 #include <iostream>
-
 #include <GL/freeglut.h>
-
 #include "imgui.h"
 #include "imgui_impl_glut.h"
 #include "imgui_impl_opengl2.h"
@@ -64,10 +17,7 @@ int main(int argc, char **argv)
 #include <imgui_impl_opengl2.h>
 #include <ImGuizmo.h>
 #include <imgui_internal.h>
-
-
 #include <ImGuizmo.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,12 +28,9 @@ int main(int argc, char **argv)
 #include <memory>
 #include <deque>
 #include <mutex>
-
 #include <Eigen/Eigen>
-
 #include "structures.h"
 #include "transformations.h"
-
 #include <laszip/laszip_api.h>
 #include <portable-file-dialogs.h>
 
@@ -173,8 +120,8 @@ ros::Publisher pub_abort;
 ros::Publisher pub_multiple_goals_to_robot;
 ros::Publisher pub_multiple_goals_to_robot_execute;
 ros::Publisher pub_get_last_goal_pc;
-
-
+ros::Publisher pub_save_buckets;
+ros::Publisher pub_load_buckets;
 
 ros::Subscriber sub_get_current_pc;
 ros::Subscriber sub_get_current_map;
@@ -683,7 +630,7 @@ void project_gui(BaseStationParameters &paramters)
                 }
 
                 ImGui::SameLine();
-                text = "remove [" + std::to_string(i) + "]";
+                text = "remove goal[" + std::to_string(i) + "]";
                 if(ImGui::Button(text.c_str())){
                     index_remove = i;
                 }
@@ -795,7 +742,7 @@ void project_gui(BaseStationParameters &paramters)
 
             }
 
-            ImGui::SameLine();
+            //ImGui::SameLine();
 
             if(point_clouds.size() > 0){
                 if(ImGui::Button("Export ALL as single Point Cloud (laz)")){
@@ -817,8 +764,6 @@ void project_gui(BaseStationParameters &paramters)
                             points.push_back(pp);
                          }
                     }
-
-
 
                     std::shared_ptr<pfd::save_file> save_file;
                     std::string output_file_name = "";
@@ -848,7 +793,6 @@ void project_gui(BaseStationParameters &paramters)
 
                 }
             }
-
         
             int index_to_remove = -1;
             for (int i = 0; i < point_clouds.size(); i++){
@@ -862,7 +806,7 @@ void project_gui(BaseStationParameters &paramters)
                     point_clouds[i].decimation = 1;
                 }
                 ImGui::SameLine();
-                std::string text_rem = "remove [" + std::to_string(i) + "]";
+                std::string text_rem = "remove pc[" + std::to_string(i) + "]";
                 if(ImGui::Button(text_rem.c_str())){
                     index_to_remove = i;
                 }
@@ -917,6 +861,26 @@ void project_gui(BaseStationParameters &paramters)
             }
         }
 
+        if(ImGui::Button("save_buckets")){
+            ros::NodeHandle nh;
+            std_msgs::Int32 get_current_pc;
+            get_current_pc.data = 1;
+            pub_save_buckets.publish(get_current_pc);
+            std::cout << "send pub_save_buckets" << std::endl;
+        }
+        ImGui::SameLine();
+        if(ImGui::Button("load_buckets")){
+            ros::NodeHandle nh;
+            std_msgs::Int32 get_current_pc;
+            get_current_pc.data = 1;
+            pub_load_buckets.publish(get_current_pc);
+            std::cout << "send pub_load_buckets" << std::endl;
+        }
+
+//ros::Publisher pub_save_buckets;
+//ros::Publisher pub_load_buckets;
+
+
         /*
         if (ImGui::Button("Path")){
             nav_msgs::Path path;
@@ -959,6 +923,13 @@ int main(int argc, char *argv[]){
 
     pub_multiple_goals_to_robot = nh.advertise< nav_msgs::Path > ("multiple_goals_to_robot", 1);
     pub_multiple_goals_to_robot_execute = nh.advertise< std_msgs::Int32 > ("multiple_goals_to_robot_execute", 1);
+
+    pub_save_buckets = nh.advertise<std_msgs::Int32> ("pub_save_buckets", 1);
+    pub_load_buckets = nh.advertise<std_msgs::Int32> ("pub_load_buckets", 1);
+
+//ros::Publisher pub_save_buckets;
+//ros::Publisher pub_load_buckets;
+
 
     //pub_current_robot_pose = nh.advertise<nav_msgs::Path>  ("current_robot_pose", 1);
 
