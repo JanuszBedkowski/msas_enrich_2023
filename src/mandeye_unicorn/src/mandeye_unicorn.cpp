@@ -2239,7 +2239,17 @@ bool save_buckets(const BucketMap &buckets, const std::string &path)
     {
         nlohmann::json buckets_json = {};
 
-        for (const auto &[key, bucket] : buckets)
+        //for(const auto &b:buckets)
+       // {
+        //    pcl::PointXYZ p;
+        //    p.x = b.second.mean.x();
+        //    p.y = b.second.mean.y();
+        //    p.z = b.second.mean.z();
+        //    msg->points.push_back(p);
+        //    point_count++;
+        //}
+
+        /*for (const auto &[key, bucket] : buckets)
         {
             const auto key_str = std::to_string(key);
 
@@ -2266,7 +2276,7 @@ bool save_buckets(const BucketMap &buckets, const std::string &path)
             buckets_json[key_str]["cov"]["22"] = bucket.cov(2, 2);
         }
 
-        file << buckets_json.dump(2);
+        file << buckets_json.dump(2);*/
 
         return true;
     }
@@ -2276,7 +2286,7 @@ bool save_buckets(const BucketMap &buckets, const std::string &path)
 
 bool load_buckets(BucketMap &buckets, const std::string &path)
 {
-    if (std::ifstream file = std::ifstream(path, std::ios::in | std::ios::binary))
+    /*if (std::ifstream file = std::ifstream(path, std::ios::in | std::ios::binary))
     {
         nlohmann::json buckets_json = nlohmann::json::parse(file);
 
@@ -2309,6 +2319,6 @@ bool load_buckets(BucketMap &buckets, const std::string &path)
 
         return true;
     }
-
+*/
     return false;
 }
