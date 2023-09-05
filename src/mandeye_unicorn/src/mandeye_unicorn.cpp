@@ -111,15 +111,15 @@ struct DemoOdometryParameters{
 
 	int decimated_points_size = 0;
 	int points_size = 0;
-	int number_of_iterations = 30;
+	int number_of_iterations = 10;
 
 	bool init = true;
 	//double imu_yaw_prev = 0.0;
     int max_current_points = 1000000;
 
-    double rot_speed = 0.3;//0.5;
-    double rot_speed_slow = 0.1;//0.2;
-    double forward_speed_slow = 0.2;
+    double rot_speed = 0.1;//0.5;
+    double rot_speed_slow = 0.01;//0.2;
+    double forward_speed_slow = 0.1;//0.2;
     double forward_speed = 0.3;
     double forward_speed_fast = 0.5;//1.0;
     double backward_speed_slow = 0.01;
@@ -181,7 +181,7 @@ int mission_next_goal_index = 0;
 
 
 //pub_path = nh.advertise< nav_msgs::Path > ("path", 1);
-bool save_buckets(const BucketMap &buckets, const std::string &path);
+bool save_buckets(BucketMap &buckets, const std::string &path);
 bool load_buckets(BucketMap &buckets, const std::string &path);
 
 void update_rgd(Eigen::Vector3d b, std::map<unsigned long long int, Bucket> &buckets,
@@ -667,6 +667,30 @@ void ImuDataCallback(uint32_t handle, const uint8_t dev_type,  LivoxLidarEtherne
 
 }
 
+void pub_save_bucketsCallback(const std_msgs::Int32::Ptr &msg)
+{
+    std::cout << "pub_save_bucketsCallback" << std::endl;
+    save_buckets(buckets, "buckets.json");
+}
+
+void pub_load_bucketsCallback(const std_msgs::Int32::Ptr &msg)
+{
+    std::cout << "pub_load_bucketsCallback" << std::endl;
+    {
+        std::lock_guard<std::mutex> lck(buckets_lock);
+        trajectory.clear();
+        buckets.clear();
+        
+        Eigen::Affine3d initial_pose = Eigen::Affine3d::Identity();
+        initial_pose(2,3) = params.calib_height_above_ground;
+
+        trajectory.push_back(initial_pose);
+        
+        //update_rgd(Eigen::Vector3d(0.3, 0.3, 0.3), buckets, decimated_points);
+        load_buckets(buckets, "buckets.json");
+    }
+}
+
 int main(int argc, char *argv[]){
     if(argc != 5){
         std::cout << "USAGE #1: " << argv[0] << " config_file_name 0 - non gui folder1 folder2" << std::endl;
@@ -785,6 +809,9 @@ int main(int argc, char *argv[]){
         ros::Subscriber sub_multiple_goals_to_robot_execute = nh.subscribe("multiple_goals_to_robot_execute", 1, multiple_goals_to_robot_executeCallback);
 
         ros::Subscriber sub_get_last_goal_pc = nh.subscribe("get_last_goal_pc", 1, getLastPointCloudCallback);
+
+        ros::Subscriber sub_save_buckets = nh.subscribe("pub_save_buckets", 1, pub_save_bucketsCallback);
+        ros::Subscriber sub_load_buckets = nh.subscribe("pub_load_buckets", 1, pub_load_bucketsCallback);
 
 
         ros::Rate loop_rate(1);
@@ -1231,6 +1258,7 @@ void main_loop(bool render){
 		{
 			std::lock_guard<std::mutex> lck(buckets_lock);
             if(trajectory.size() == 0){
+                std::cout << "trajectory.size() == 0" << std::endl;
                 return;
             }
 
@@ -1573,7 +1601,7 @@ void main_loop(bool render){
                         }
                     }
                 }else if(distance_to_goal < 1.0){//precize 
-                    if(angle > 15){
+                    if(angle > 30){
                         if(sign < 0){
                             geometry_msgs::Twist twist;
                             twist.angular.z= params.rot_speed;
@@ -1602,12 +1630,12 @@ void main_loop(bool render){
                     if(angle > 10){
                         if(sign < 0){
                             geometry_msgs::Twist twist;
-                            twist.angular.z= params.rot_speed;
+                            twist.angular.z= params.rot_speed*2.0;
                             twist.linear.x = 0;//-0.05;
                             pub_vel.publish(twist);  
                         }else{
                             geometry_msgs::Twist twist;
-                            twist.angular.z= -params.rot_speed;
+                            twist.angular.z= -params.rot_speed*2.0;
                             twist.linear.x = 0;
                             pub_vel.publish(twist);  
                         }
@@ -1769,7 +1797,7 @@ void main_loop(bool render){
                     }
                 }else if(distance_to_goal < 1.0){//precize 
                 //std::cout << "4" << std::endl;
-                    if(angle > 15){
+                    if(angle > 30){
                         //std::cout << "5" << std::endl;
                         if(sign < 0){
                             geometry_msgs::Twist twist;
@@ -1806,13 +1834,13 @@ void main_loop(bool render){
                         if(sign < 0){
                             //std::cout << "12" << std::endl;
                             geometry_msgs::Twist twist;
-                            twist.angular.z= params.rot_speed;
+                            twist.angular.z= params.rot_speed*2.0;
                             twist.linear.x = -params.backward_speed_slow * -1;
                             pub_vel.publish(twist);  
                         }else{
                             //std::cout << "13" << std::endl;
                             geometry_msgs::Twist twist;
-                            twist.angular.z= -params.rot_speed;
+                            twist.angular.z= -params.rot_speed*2.0;
                             twist.linear.x = -params.backward_speed_slow * -1;
                             pub_vel.publish(twist);  
                         }
@@ -1878,7 +1906,7 @@ void main_loop(bool render){
 	auto end = std::chrono::steady_clock::now();
 	std::chrono::duration<double> elapsed_seconds = end-start;
 	params.main_loop_time_execution = elapsed_seconds.count();
-    //std::cout << params.main_loop_time_execution << std::endl;
+    std::cout << "timer main_loop: " << params.main_loop_time_execution << std::endl;
 }
 
 std::vector<Point3Di> decimate(const std::vector<Point3Di> &points, double bucket_x, double bucket_y, double bucket_z)
@@ -2233,92 +2261,93 @@ void update_rgd(Eigen::Vector3d b, std::map<unsigned long long int, Bucket> &buc
     }
 }
 
-bool save_buckets(const BucketMap &buckets, const std::string &path)
+bool save_buckets(BucketMap &buckets, const std::string &path)
 {
-    if (std::ofstream file = std::ofstream(path, std::ios::out | std::ios::binary))
-    {
-        nlohmann::json buckets_json = {};
+    nlohmann::json jj;
+    nlohmann::json jbuckets;
+    for(std::map<unsigned long long int, Bucket>::iterator it = buckets.begin(); it != buckets.end(); ++it) {
+        //const auto key_str = std::to_string(it->first);
+        nlohmann::json jbucket{
+            {"key", it->first},
+            {"index_begin", it->second.index_begin},
+            {"index_end", it->second.index_end},
+            {"number_of_points", it->second.number_of_points},
+            {"mean_x", it->second.mean.x()},
+            {"mean_y", it->second.mean.y()},
+            {"mean_z", it->second.mean.z()},
+            {"cov_00", it->second.cov(0, 0)},
+            {"cov_01", it->second.cov(0, 1)},
+            {"cov_02", it->second.cov(0, 2)},
+            {"cov_10", it->second.cov(1, 0)},
+            {"cov_11", it->second.cov(1, 1)},
+            {"cov_12", it->second.cov(1, 2)},
+            {"cov_20", it->second.cov(2, 0)},
+            {"cov_21", it->second.cov(2, 1)},
+            {"cov_22", it->second.cov(2, 2)}
+        };
 
-        //for(const auto &b:buckets)
-       // {
-        //    pcl::PointXYZ p;
-        //    p.x = b.second.mean.x();
-        //    p.y = b.second.mean.y();
-        //    p.z = b.second.mean.z();
-        //    msg->points.push_back(p);
-        //    point_count++;
-        //}
-
-        /*for (const auto &[key, bucket] : buckets)
-        {
-            const auto key_str = std::to_string(key);
-
-            buckets_json[key_str] = {};
-            //
-            buckets_json[key_str]["index_begin"] = bucket.index_begin;
-            buckets_json[key_str]["index_end"] = bucket.index_end;
-            buckets_json[key_str]["number_of_points"] = bucket.number_of_points;
-            //
-            buckets_json[key_str]["mean"]["x"] = bucket.mean.x();
-            buckets_json[key_str]["mean"]["y"] = bucket.mean.y();
-            buckets_json[key_str]["mean"]["z"] = bucket.mean.z();
-            //
-            buckets_json[key_str]["cov"]["00"] = bucket.cov(0, 0);
-            buckets_json[key_str]["cov"]["01"] = bucket.cov(0, 1);
-            buckets_json[key_str]["cov"]["02"] = bucket.cov(0, 2);
-            //
-            buckets_json[key_str]["cov"]["10"] = bucket.cov(1, 0);
-            buckets_json[key_str]["cov"]["11"] = bucket.cov(1, 1);
-            buckets_json[key_str]["cov"]["12"] = bucket.cov(1, 2);
-            //
-            buckets_json[key_str]["cov"]["20"] = bucket.cov(2, 0);
-            buckets_json[key_str]["cov"]["21"] = bucket.cov(2, 1);
-            buckets_json[key_str]["cov"]["22"] = bucket.cov(2, 2);
-        }
-
-        file << buckets_json.dump(2);*/
-
-        return true;
+        jbuckets.push_back(jbucket);
     }
+    jj["buckets"] = jbuckets;
 
-    return false;
+    std::ofstream fs(path);
+    if (!fs.good()){
+        return false;
+    }
+    fs << jj.dump(2);
+    fs.close();
+
+    return true;
 }
 
 bool load_buckets(BucketMap &buckets, const std::string &path)
 {
-    /*if (std::ifstream file = std::ifstream(path, std::ios::in | std::ios::binary))
+    buckets.clear();
+    try
     {
-        nlohmann::json buckets_json = nlohmann::json::parse(file);
-
-        for (const auto &[key, bucket_json] : buckets_json.items())
-        {
-            Bucket bucket = {};
-            //
-            bucket.index_begin = bucket_json["index_begin"];
-            bucket.index_end = bucket_json["index_end"];
-            bucket.number_of_points = bucket_json["number_of_points"];
-            //
-            bucket.mean.x() = bucket_json["mean"]["x"];
-            bucket.mean.y() = bucket_json["mean"]["y"];
-            bucket.mean.z() = bucket_json["mean"]["z"];
-            //
-            bucket.cov(0, 0) = bucket_json["cov"]["00"];
-            bucket.cov(0, 1) = bucket_json["cov"]["01"];
-            bucket.cov(0, 2) = bucket_json["cov"]["02"];
-            //
-            bucket.cov(1, 0) = bucket_json["cov"]["10"];
-            bucket.cov(1, 1) = bucket_json["cov"]["11"];
-            bucket.cov(1, 2) = bucket_json["cov"]["12"];
-            //
-            bucket.cov(2, 0) = bucket_json["cov"]["20"];
-            bucket.cov(2, 1) = bucket_json["cov"]["21"];
-            bucket.cov(2, 2) = bucket_json["cov"]["22"];
-
-            buckets[std::stoull(key)] = bucket;
+        std::ifstream fs(path);
+        if (!fs.good()){
+            return false;
         }
+        nlohmann::json data = nlohmann::json::parse(fs);
+        fs.close();
 
+        for (const auto &jbucket : data["buckets"])
+        {
+            //struct Bucket{
+            //    long long unsigned int index_begin;
+            //    long long unsigned int index_end;
+            //    long long unsigned int number_of_points;
+            //    Eigen::Vector3d mean;
+            //    Eigen::Matrix3d cov;
+            //};
+
+            Bucket bucket;
+            bucket.index_begin = jbucket["index_begin"];
+            bucket.index_end = jbucket["index_end"];
+            bucket.number_of_points = jbucket["number_of_points"];
+            bucket.mean.x() = jbucket["mean_x"];
+            bucket.mean.y() = jbucket["mean_y"];
+            bucket.mean.z() = jbucket["mean_z"];
+            bucket.cov(0, 0) = jbucket["cov_00"];
+            bucket.cov(0, 1) = jbucket["cov_01"];
+            bucket.cov(0, 2) = jbucket["cov_02"];
+            bucket.cov(1, 0) = jbucket["cov_10"];
+            bucket.cov(1, 1) = jbucket["cov_11"];
+            bucket.cov(1, 2) = jbucket["cov_12"];
+            bucket.cov(2, 0) = jbucket["cov_20"];
+            bucket.cov(2, 1) = jbucket["cov_21"];
+            bucket.cov(2, 2) = jbucket["cov_22"];
+
+            //std::map<unsigned long long int, Bucket> buckets;
+            unsigned long long int index_of_bucket = jbucket["key"];
+            buckets[index_of_bucket] = bucket;
+        }
         return true;
     }
-*/
-    return false;
+    catch (std::exception &e)
+    {
+        std::cout << "cant load data: " << e.what() << std::endl;
+        return false;
+    }
 }
