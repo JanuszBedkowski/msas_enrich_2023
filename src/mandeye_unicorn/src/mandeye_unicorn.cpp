@@ -2312,7 +2312,7 @@ bool load_buckets(BucketMap &buckets, const std::string &path)
             bucket.cov(2, 2) = jbucket["cov_22"];
 
             //std::map<unsigned long long int, Bucket> buckets;
-            unsigned long long int index_of_bucket = jbucket["key"];//std::stoull(jbucket["key"]);
+            unsigned long long int index_of_bucket = jbucket["key"];
             buckets[index_of_bucket] = bucket;
         }
         return true;
