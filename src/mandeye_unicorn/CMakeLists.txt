@@ -166,7 +166,7 @@ include_directories(
 ## either from message generation or dynamic reconfigure
 # add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-include_directories(src/3rd/imgui src/3rd/imgui/backends src/3rd/)
+include_directories(src/3rd/imgui src/3rd/imgui/backends src/3rd/ src/3rd/json/include)
 
 set(ImGui_Glut_src 
 src/3rd/imgui/imgui.cpp 
@@ -198,6 +198,7 @@ add_subdirectory(src/3rd/LASzip/)
 include_directories(
 src/3rd/LASzip/include
 src/3rd/portable-file-dialogs-master
+src/3rd/json/include
 )
 
 set(GIZMO 

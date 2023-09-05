@@ -11,49 +11,6 @@
 #include <std_msgs/String.h>
 
 #include <laszip/laszip_api.h>
-
-#if 0
-int main(int argc, char **argv)
-{
-    std::cout << "start mandeye unicorn" << std::endl;
-    ros::init(argc, argv, "mandeye");
-    ros::NodeHandle nh;
-    ros::Publisher pc_pub = nh.advertise<pcl::PointCloud<pcl::PointXYZI> > ("cloud", 1);
-pc_current_pub
-    ros::Rate loop_rate(1);
-
-    while (ros::ok())
-    {
-        pcl::PointCloud<pcl::PointXYZI>::Ptr msg(new pcl::PointCloud<pcl::PointXYZI>);
-
-        size_t point_count = 100;
-
-        msg->header.frame_id = "odom";
-        msg->height = 1;
-        msg->width = point_count;
-        pcl_conversions::toPCL(ros::Time::now(), msg->header.stamp);
-
-        for (size_t i=0;i<point_count;++i)
-        {
-            pcl::PointXYZI p;
-            p.x = -1.5  + 3 * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            p.y = - 0.5 + 1 * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            p.z = - 1 + 2 * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            p.intensity = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            msg->points.push_back(p);
-        }
-        std::cout << "publish pc" << std::endl;
-        pc_pub.publish(*msg);
-
-
-        ros::spinOnce();
-
-        loop_rate.sleep();
-    }
-  return 0;
-}
-#endif
-
 #include <iostream>
  
 #include <GL/freeglut.h>
@@ -96,7 +53,11 @@ pc_current_pub
 #include <string>
 #include <sys/stat.h>
 
+#include <nlohmann/json.hpp>
+
 #define SAMPLE_PERIOD (1.0 / 200.0)
+
+typedef std::map<unsigned long long int, Bucket> BucketMap;
 
 const unsigned int window_width = 640;
 const unsigned int window_height = 480;
@@ -156,14 +117,21 @@ struct DemoOdometryParameters{
 	//double imu_yaw_prev = 0.0;
     int max_current_points = 1000000;
 
-    double rot_speed = 0.5;
-    double rot_speed_slow = 0.2;
+    double rot_speed = 0.3;//0.5;
+    double rot_speed_slow = 0.1;//0.2;
     double forward_speed_slow = 0.2;
     double forward_speed = 0.3;
-    double forward_speed_fast = 1.0;
-    //double forward_speed_fast = 0.2;
+    double forward_speed_fast = 0.5;//1.0;
     double backward_speed_slow = 0.01;
-    double speed_boost = 1.5;
+    double speed_boost = 1.0;//1.5;
+
+    double rot_speed_tmp = rot_speed;
+    double rot_speed_slow_tmp = rot_speed;
+    double forward_speed_slow_tmp = forward_speed_slow;
+    double forward_speed_tmp = forward_speed;
+    double forward_speed_fast_tmp = forward_speed_fast;
+    double backward_speed_slow_tmp = backward_speed_slow;
+
 
     std::string folder1 = "";
     std::string folder2 = "";
@@ -213,6 +181,8 @@ int mission_next_goal_index = 0;
 
 
 //pub_path = nh.advertise< nav_msgs::Path > ("path", 1);
+bool save_buckets(const BucketMap &buckets, const std::string &path);
+bool load_buckets(BucketMap &buckets, const std::string &path);
 
 void update_rgd(Eigen::Vector3d b, std::map<unsigned long long int, Bucket> &buckets,
                 std::vector<Point3Di>& points_global);
@@ -584,8 +554,8 @@ void PointCloudCallback(uint32_t handle, const uint8_t dev_type, LivoxLidarEther
 				const auto & p = p_point_data[i];
 
                 Eigen::Vector3d pt(p.x * 0.001, p.y * 0.001, p.z * 0.001);
-				if(fabs(pt.x()) < params.pc_filter_length * 0.5 && fabs(pt.y()) < params.pc_filter_width * 0.5){
-				}else{
+				//if(fabs(pt.x()) < params.pc_filter_length * 0.5 && fabs(pt.y()) < params.pc_filter_width * 0.5){
+				//}else{
                     if(params.compensate_roll_pitch_with_imu){
                         Point3Di new_p;
 						new_p.intensity = p.reflectivity;
@@ -599,7 +569,7 @@ void PointCloudCallback(uint32_t handle, const uint8_t dev_type, LivoxLidarEther
 						new_p.index_pose = 1;
                         points.push_back(new_p);
                     }
-				}
+				//}
 				if(params.init){
 					while (points.size() > params.number_max_points_init){
 						points.pop_front();
@@ -1316,6 +1286,49 @@ void main_loop(bool render){
 		}
 
         ////////////////////////mission///////////////////////
+        params.rot_speed = params.rot_speed_tmp;
+        params.rot_speed_slow = params.rot_speed_slow_tmp;
+        params.forward_speed_slow = params.forward_speed_slow_tmp;
+        params.forward_speed = params.forward_speed_tmp;
+        params.forward_speed_fast = params.forward_speed_fast_tmp;
+        params.backward_speed_slow = params.backward_speed_slow_tmp;
+
+        
+        //std::cout << "all_points.size() " << all_points.size() << std::endl;
+        
+        int count_front = 0;
+        int count_back = 0;
+
+        for(int i = 0; i < all_points.size(); i+=2)
+        {
+            //const auto &point = all_points[i];
+
+            if(all_points[i].point.z() > 0.2 && all_points[i].point.z() < 1.8){
+                if(all_points[i].point.x() > 0.0 && all_points[i].point.x() < 0.4){
+                    if(all_points[i].point.y() > -0.25 && all_points[i].point.y() < 0.25){
+                        count_front++;
+                    }
+                }
+
+                if(all_points[i].point.x() > -0.6 && all_points[i].point.x() < 0.0){
+                    if(all_points[i].point.y() > -0.25 && all_points[i].point.y() < 0.25){
+                        count_back++;
+                    }
+                }
+            }
+        }
+
+        //std::cout << "count_front " << count_front << " count_back " << count_back << std::endl;
+        if(count_front > 10 || count_back > 10){
+            params.forward_speed_slow = 0;
+            params.forward_speed = 0;
+            params.forward_speed_fast = 0;
+            params.backward_speed_slow = 0;
+            params.rot_speed = 0;
+            params.rot_speed_slow = 0;
+        }      
+
+
         switch(mission_type){
             case MissionType::none:{
             break;
@@ -2218,4 +2231,84 @@ void update_rgd(Eigen::Vector3d b, std::map<unsigned long long int, Bucket> &buc
             buckets[index_of_bucket].number_of_points = 1;
         }
     }
+}
+
+bool save_buckets(const BucketMap &buckets, const std::string &path)
+{
+    if (std::ofstream file = std::ofstream(path, std::ios::out | std::ios::binary))
+    {
+        nlohmann::json buckets_json = {};
+
+        for (const auto &[key, bucket] : buckets)
+        {
+            const auto key_str = std::to_string(key);
+
+            buckets_json[key_str] = {};
+            //
+            buckets_json[key_str]["index_begin"] = bucket.index_begin;
+            buckets_json[key_str]["index_end"] = bucket.index_end;
+            buckets_json[key_str]["number_of_points"] = bucket.number_of_points;
+            //
+            buckets_json[key_str]["mean"]["x"] = bucket.mean.x();
+            buckets_json[key_str]["mean"]["y"] = bucket.mean.y();
+            buckets_json[key_str]["mean"]["z"] = bucket.mean.z();
+            //
+            buckets_json[key_str]["cov"]["00"] = bucket.cov(0, 0);
+            buckets_json[key_str]["cov"]["01"] = bucket.cov(0, 1);
+            buckets_json[key_str]["cov"]["02"] = bucket.cov(0, 2);
+            //
+            buckets_json[key_str]["cov"]["10"] = bucket.cov(1, 0);
+            buckets_json[key_str]["cov"]["11"] = bucket.cov(1, 1);
+            buckets_json[key_str]["cov"]["12"] = bucket.cov(1, 2);
+            //
+            buckets_json[key_str]["cov"]["20"] = bucket.cov(2, 0);
+            buckets_json[key_str]["cov"]["21"] = bucket.cov(2, 1);
+            buckets_json[key_str]["cov"]["22"] = bucket.cov(2, 2);
+        }
+
+        file << buckets_json.dump(2);
+
+        return true;
+    }
+
+    return false;
+}
+
+bool load_buckets(BucketMap &buckets, const std::string &path)
+{
+    if (std::ifstream file = std::ifstream(path, std::ios::in | std::ios::binary))
+    {
+        nlohmann::json buckets_json = nlohmann::json::parse(file);
+
+        for (const auto &[key, bucket_json] : buckets_json.items())
+        {
+            Bucket bucket = {};
+            //
+            bucket.index_begin = bucket_json["index_begin"];
+            bucket.index_end = bucket_json["index_end"];
+            bucket.number_of_points = bucket_json["number_of_points"];
+            //
+            bucket.mean.x() = bucket_json["mean"]["x"];
+            bucket.mean.y() = bucket_json["mean"]["y"];
+            bucket.mean.z() = bucket_json["mean"]["z"];
+            //
+            bucket.cov(0, 0) = bucket_json["cov"]["00"];
+            bucket.cov(0, 1) = bucket_json["cov"]["01"];
+            bucket.cov(0, 2) = bucket_json["cov"]["02"];
+            //
+            bucket.cov(1, 0) = bucket_json["cov"]["10"];
+            bucket.cov(1, 1) = bucket_json["cov"]["11"];
+            bucket.cov(1, 2) = bucket_json["cov"]["12"];
+            //
+            bucket.cov(2, 0) = bucket_json["cov"]["20"];
+            bucket.cov(2, 1) = bucket_json["cov"]["21"];
+            bucket.cov(2, 2) = bucket_json["cov"]["22"];
+
+            buckets[std::stoull(key)] = bucket;
+        }
+
+        return true;
+    }
+
+    return false;
 }
