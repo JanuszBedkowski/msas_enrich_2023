@@ -111,15 +111,15 @@ struct DemoOdometryParameters{
 
 	int decimated_points_size = 0;
 	int points_size = 0;
-	int number_of_iterations = 30;
+	int number_of_iterations = 10;
 
 	bool init = true;
 	//double imu_yaw_prev = 0.0;
     int max_current_points = 1000000;
 
-    double rot_speed = 0.3;//0.5;
-    double rot_speed_slow = 0.1;//0.2;
-    double forward_speed_slow = 0.2;
+    double rot_speed = 0.1;//0.5;
+    double rot_speed_slow = 0.01;//0.2;
+    double forward_speed_slow = 0.1;//0.2;
     double forward_speed = 0.3;
     double forward_speed_fast = 0.5;//1.0;
     double backward_speed_slow = 0.01;
@@ -667,6 +667,30 @@ void ImuDataCallback(uint32_t handle, const uint8_t dev_type,  LivoxLidarEtherne
 
 }
 
+void pub_save_bucketsCallback(const std_msgs::Int32::Ptr &msg)
+{
+    std::cout << "pub_save_bucketsCallback" << std::endl;
+    save_buckets(buckets, "buckets.json");
+}
+
+void pub_load_bucketsCallback(const std_msgs::Int32::Ptr &msg)
+{
+    std::cout << "pub_load_bucketsCallback" << std::endl;
+    {
+        std::lock_guard<std::mutex> lck(buckets_lock);
+        trajectory.clear();
+        buckets.clear();
+        
+        Eigen::Affine3d initial_pose = Eigen::Affine3d::Identity();
+        initial_pose(2,3) = params.calib_height_above_ground;
+
+        trajectory.push_back(initial_pose);
+        
+        //update_rgd(Eigen::Vector3d(0.3, 0.3, 0.3), buckets, decimated_points);
+        load_buckets(buckets, "buckets.json");
+    }
+}
+
 int main(int argc, char *argv[]){
     if(argc != 5){
         std::cout << "USAGE #1: " << argv[0] << " config_file_name 0 - non gui folder1 folder2" << std::endl;
@@ -785,6 +809,9 @@ int main(int argc, char *argv[]){
         ros::Subscriber sub_multiple_goals_to_robot_execute = nh.subscribe("multiple_goals_to_robot_execute", 1, multiple_goals_to_robot_executeCallback);
 
         ros::Subscriber sub_get_last_goal_pc = nh.subscribe("get_last_goal_pc", 1, getLastPointCloudCallback);
+
+        ros::Subscriber sub_save_buckets = nh.subscribe("pub_save_buckets", 1, pub_save_bucketsCallback);
+        ros::Subscriber sub_load_buckets = nh.subscribe("pub_load_buckets", 1, pub_load_bucketsCallback);
 
 
         ros::Rate loop_rate(1);
@@ -1231,6 +1258,7 @@ void main_loop(bool render){
 		{
 			std::lock_guard<std::mutex> lck(buckets_lock);
             if(trajectory.size() == 0){
+                std::cout << "trajectory.size() == 0" << std::endl;
                 return;
             }
 
@@ -1573,7 +1601,7 @@ void main_loop(bool render){
                         }
                     }
                 }else if(distance_to_goal < 1.0){//precize 
-                    if(angle > 15){
+                    if(angle > 30){
                         if(sign < 0){
                             geometry_msgs::Twist twist;
                             twist.angular.z= params.rot_speed;
@@ -1602,12 +1630,12 @@ void main_loop(bool render){
                     if(angle > 10){
                         if(sign < 0){
                             geometry_msgs::Twist twist;
-                            twist.angular.z= params.rot_speed;
+                            twist.angular.z= params.rot_speed*2.0;
                             twist.linear.x = 0;//-0.05;
                             pub_vel.publish(twist);  
                         }else{
                             geometry_msgs::Twist twist;
-                            twist.angular.z= -params.rot_speed;
+                            twist.angular.z= -params.rot_speed*2.0;
                             twist.linear.x = 0;
                             pub_vel.publish(twist);  
                         }
@@ -1769,7 +1797,7 @@ void main_loop(bool render){
                     }
                 }else if(distance_to_goal < 1.0){//precize 
                 //std::cout << "4" << std::endl;
-                    if(angle > 15){
+                    if(angle > 30){
                         //std::cout << "5" << std::endl;
                         if(sign < 0){
                             geometry_msgs::Twist twist;
@@ -1806,13 +1834,13 @@ void main_loop(bool render){
                         if(sign < 0){
                             //std::cout << "12" << std::endl;
                             geometry_msgs::Twist twist;
-                            twist.angular.z= params.rot_speed;
+                            twist.angular.z= params.rot_speed*2.0;
                             twist.linear.x = -params.backward_speed_slow * -1;
                             pub_vel.publish(twist);  
                         }else{
                             //std::cout << "13" << std::endl;
                             geometry_msgs::Twist twist;
-                            twist.angular.z= -params.rot_speed;
+                            twist.angular.z= -params.rot_speed*2.0;
                             twist.linear.x = -params.backward_speed_slow * -1;
                             pub_vel.publish(twist);  
                         }
@@ -1878,7 +1906,7 @@ void main_loop(bool render){
 	auto end = std::chrono::steady_clock::now();
 	std::chrono::duration<double> elapsed_seconds = end-start;
 	params.main_loop_time_execution = elapsed_seconds.count();
-    //std::cout << params.main_loop_time_execution << std::endl;
+    std::cout << "timer main_loop: " << params.main_loop_time_execution << std::endl;
 }
 
 std::vector<Point3Di> decimate(const std::vector<Point3Di> &points, double bucket_x, double bucket_y, double bucket_z)
@@ -2238,9 +2266,9 @@ bool save_buckets(BucketMap &buckets, const std::string &path)
     nlohmann::json jj;
     nlohmann::json jbuckets;
     for(std::map<unsigned long long int, Bucket>::iterator it = buckets.begin(); it != buckets.end(); ++it) {
-        const auto key_str = std::to_string(it->first);
+        //const auto key_str = std::to_string(it->first);
         nlohmann::json jbucket{
-            {"key", key_str},
+            {"key", it->first},
             {"index_begin", it->second.index_begin},
             {"index_end", it->second.index_end},
             {"number_of_points", it->second.number_of_points},
@@ -2319,7 +2347,7 @@ bool load_buckets(BucketMap &buckets, const std::string &path)
     }
     catch (std::exception &e)
     {
-        std::cout << "cant load session: " << e.what() << std::endl;
+        std::cout << "cant load data: " << e.what() << std::endl;
         return false;
     }
 }
