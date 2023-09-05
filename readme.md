@@ -1,3 +1,31 @@
+ToDo --> change this help!!!
+
+-----
+1 krok
+#nowy terminal
+sshfs jackal:/ /home/station/Desktop/usb_on_jackal
+2
+#nowy terminal
+ssh jackal
+screen -S mandeye
+cd catkin_ws/src/enrich2019/devel/lib/mandeye_unicorn/
+./mandeye_unicorn ./mid360_config_lio.json 0 /mnt/usb/ /home/robot/enrich2023_data/
+
+#nowy terminal
+cd enrich2019/devel/lib/mandeye_unicorn/
+./base_station_unicorn
+
+
+#optional
+#nowy terminal
+ssh jackal
+cd catkin_ws/src/enrich2019/
+catkin_make
+
+lsusb
+lsblk
+-----
+
 
 # setting up jackal
 
