@@ -64,6 +64,7 @@
         "any": "cpp",
         "filesystem": "cpp",
         "optional": "cpp",
-        "memory": "cpp"
+        "memory": "cpp",
+        "core": "cpp"
     }
 }

@@ -7,55 +7,8 @@
 #include "std_msgs/Int32.h"
 #include "std_msgs/Float32.h"
 #include "geometry_msgs/Twist.h"
-
-
-
-#if 0
-int main(int argc, char **argv)
-{
-    std::cout << "start mandeye unicorn" << std::endl;
-    ros::init(argc, argv, "mandeye");
-    ros::NodeHandle nh;
-    ros::Publisher pc_pub = nh.advertise<pcl::PointCloud<pcl::PointXYZI> > ("cloud", 1);
-
-    ros::Rate loop_rate(1);
-
-    while (ros::ok())
-    {
-        pcl::PointCloud<pcl::PointXYZI>::Ptr msg(new pcl::PointCloud<pcl::PointXYZI>);
-
-        size_t point_count = 100;
-
-        msg->header.frame_id = "odom";
-        msg->height = 1;
-        msg->width = point_count;
-        pcl_conversions::toPCL(ros::Time::now(), msg->header.stamp);
-
-        for (size_t i=0;i<point_count;++i)
-        {
-            pcl::PointXYZI p;
-            p.x = -1.5  + 3 * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            p.y = - 0.5 + 1 * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            p.z = - 1 + 2 * static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            p.intensity = static_cast <float> (rand()) / static_cast <float> (RAND_MAX);
-            msg->points.push_back(p);
-        }
-        std::cout << "publish pc" << std::endl;
-        pc_pub.publish(*msg);
-
-
-        ros::spinOnce();
-
-        loop_rate.sleep();
-    }
-  return 0;
-}
-#endif
-
 #include <iostream>
-
 #include <GL/freeglut.h>
-
 #include "imgui.h"
 #include "imgui_impl_glut.h"
 #include "imgui_impl_opengl2.h"
@@ -64,10 +17,7 @@ int main(int argc, char **argv)
 #include <imgui_impl_opengl2.h>
 #include <ImGuizmo.h>
 #include <imgui_internal.h>
-
-
 #include <ImGuizmo.h>
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -78,12 +28,9 @@ int main(int argc, char **argv)
 #include <memory>
 #include <deque>
 #include <mutex>
-
 #include <Eigen/Eigen>
-
 #include "structures.h"
 #include "transformations.h"
-
 #include <laszip/laszip_api.h>
 #include <portable-file-dialogs.h>
 
@@ -140,7 +87,7 @@ struct BaseStationParameters{
     Eigen::Vector3d goal_arrow_end = {0,0,0};
     Eigen::Vector3d goal_arrow_begin = {0,0,0};
 
-    double calib_x_offset = -0.2;
+    float calib_x_offset = 0.0;
 
     int num_scans_from_end = 0;
 };
@@ -168,13 +115,14 @@ ros::Publisher pub_get_current_pc;
 ros::Publisher pub_get_current_map;
 ros::Publisher pub_reset_jackal;
 ros::Publisher pub_calib_height_above_ground;
+ros::Publisher pub_calib_x_offset;
 ros::Publisher pub_single_goal_forward;
 ros::Publisher pub_abort;
 ros::Publisher pub_multiple_goals_to_robot;
 ros::Publisher pub_multiple_goals_to_robot_execute;
 ros::Publisher pub_get_last_goal_pc;
-
-
+ros::Publisher pub_save_buckets;
+ros::Publisher pub_load_buckets;
 
 ros::Subscriber sub_get_current_pc;
 ros::Subscriber sub_get_current_map;
@@ -578,6 +526,17 @@ void project_gui(BaseStationParameters &paramters)
             pub_calib_height_above_ground.publish(h);
         }
 
+        float calib_x_offset_prev = params.calib_x_offset;
+        ImGui::InputFloat("calib_x_offset", &params.calib_x_offset);
+        if(calib_x_offset_prev != params.calib_x_offset){
+            ros::NodeHandle nh;
+            std_msgs::Float32 h;
+            h.data = params.calib_x_offset;
+
+            std::cout << "params.calib_x_offset: " << params.calib_x_offset << std::endl;
+            pub_calib_x_offset.publish(h);
+        }
+
         if(ImGui::Button("reset jackal (clear map)")){
             ros::NodeHandle nh;
             std_msgs::Bool reset;
@@ -637,9 +596,6 @@ void project_gui(BaseStationParameters &paramters)
             params.multiple_goals = false;
         }
 
-        
- 
-
         //bool planner_mode = false;
         //bool single_goal_forward = fasle;
         ImGui::Text("-------------------------Multiple Goals------------------------------");
@@ -683,7 +639,7 @@ void project_gui(BaseStationParameters &paramters)
                 }
 
                 ImGui::SameLine();
-                text = "remove [" + std::to_string(i) + "]";
+                text = "remove goal[" + std::to_string(i) + "]";
                 if(ImGui::Button(text.c_str())){
                     index_remove = i;
                 }
@@ -795,7 +751,7 @@ void project_gui(BaseStationParameters &paramters)
 
             }
 
-            ImGui::SameLine();
+            //ImGui::SameLine();
 
             if(point_clouds.size() > 0){
                 if(ImGui::Button("Export ALL as single Point Cloud (laz)")){
@@ -817,8 +773,6 @@ void project_gui(BaseStationParameters &paramters)
                             points.push_back(pp);
                          }
                     }
-
-
 
                     std::shared_ptr<pfd::save_file> save_file;
                     std::string output_file_name = "";
@@ -848,7 +802,6 @@ void project_gui(BaseStationParameters &paramters)
 
                 }
             }
-
         
             int index_to_remove = -1;
             for (int i = 0; i < point_clouds.size(); i++){
@@ -862,7 +815,7 @@ void project_gui(BaseStationParameters &paramters)
                     point_clouds[i].decimation = 1;
                 }
                 ImGui::SameLine();
-                std::string text_rem = "remove [" + std::to_string(i) + "]";
+                std::string text_rem = "remove pc[" + std::to_string(i) + "]";
                 if(ImGui::Button(text_rem.c_str())){
                     index_to_remove = i;
                 }
@@ -917,6 +870,26 @@ void project_gui(BaseStationParameters &paramters)
             }
         }
 
+        if(ImGui::Button("save_buckets")){
+            ros::NodeHandle nh;
+            std_msgs::Int32 get_current_pc;
+            get_current_pc.data = 1;
+            pub_save_buckets.publish(get_current_pc);
+            std::cout << "send pub_save_buckets" << std::endl;
+        }
+        ImGui::SameLine();
+        if(ImGui::Button("load_buckets")){
+            ros::NodeHandle nh;
+            std_msgs::Int32 get_current_pc;
+            get_current_pc.data = 1;
+            pub_load_buckets.publish(get_current_pc);
+            std::cout << "send pub_load_buckets" << std::endl;
+        }
+
+//ros::Publisher pub_save_buckets;
+//ros::Publisher pub_load_buckets;
+
+
         /*
         if (ImGui::Button("Path")){
             nav_msgs::Path path;
@@ -953,12 +926,20 @@ int main(int argc, char *argv[]){
     pub_get_current_map = nh.advertise< std_msgs::Bool > ("get_current_map", 1);
     pub_reset_jackal = nh.advertise< std_msgs::Bool > ("reset_jackal", 1);
     pub_calib_height_above_ground = nh.advertise< std_msgs::Float32 > ("calib_height_above_ground", 1);
+    pub_calib_x_offset = nh.advertise< std_msgs::Float32 > ("calib_x_offset", 1);
     pub_single_goal_forward = nh.advertise< nav_msgs::Path > ("single_goal_forward", 1);
 
     pub_get_last_goal_pc = nh.advertise<std_msgs::Int32> ("get_last_goal_pc", 1);
 
     pub_multiple_goals_to_robot = nh.advertise< nav_msgs::Path > ("multiple_goals_to_robot", 1);
     pub_multiple_goals_to_robot_execute = nh.advertise< std_msgs::Int32 > ("multiple_goals_to_robot_execute", 1);
+
+    pub_save_buckets = nh.advertise<std_msgs::Int32> ("pub_save_buckets", 1);
+    pub_load_buckets = nh.advertise<std_msgs::Int32> ("pub_load_buckets", 1);
+
+//ros::Publisher pub_save_buckets;
+//ros::Publisher pub_load_buckets;
+
 
     //pub_current_robot_pose = nh.advertise<nav_msgs::Path>  ("current_robot_pose", 1);
 
@@ -1105,16 +1086,36 @@ void display() {
             glVertex3f(p(0,3) + p(0,2), p(1,3) + p(1,2), 0);
 	    glEnd();
 
+        Eigen::Vector3d x1(-0.2, 0, 0);
+        Eigen::Vector3d x2( 0.2, 0, 0);
+
+        Eigen::Vector3d y1(0,-0.2, 0);
+        Eigen::Vector3d y2(0, 0.2, 0);
+
+        Eigen::Vector3d x1t = p * x1;
+        Eigen::Vector3d x2t = p * x2;
+        Eigen::Vector3d y1t = p * y1;
+        Eigen::Vector3d y2t = p * y2;
+
+        glColor3f(1.0, 1.0, 1.0);
+        glBegin(GL_LINES);
+            glVertex3f(x1t.x(), x1t.y(), x1t.z());
+            glVertex3f(x2t.x(), x2t.y(), x2t.z());
+
+            glVertex3f(y1t.x(), y1t.y(), y1t.z());
+            glVertex3f(y2t.x(), y2t.y(), y2t.z());
+        glEnd();
+
         glColor3f(1.0, 0.2, 0.5);
         glBegin(GL_LINES);
-            Eigen::Vector3d v0b(-params.robot_l * 0.5 + params.calib_x_offset, -params.robot_w * 0.5, -params.robot_h * 0.5);
-            Eigen::Vector3d v1b( params.robot_l * 0.5 + params.calib_x_offset, -params.robot_w * 0.5, -params.robot_h * 0.5);
-            Eigen::Vector3d v2b( params.robot_l * 0.5 + params.calib_x_offset,  params.robot_w * 0.5, -params.robot_h * 0.5);
-            Eigen::Vector3d v3b(-params.robot_l * 0.5 + params.calib_x_offset,  params.robot_w * 0.5, -params.robot_h * 0.5);
-            Eigen::Vector3d v0u(-params.robot_l * 0.5 + params.calib_x_offset, -params.robot_w * 0.5,  params.robot_h * 0.5);
-            Eigen::Vector3d v1u( params.robot_l * 0.5 + params.calib_x_offset, -params.robot_w * 0.5,  params.robot_h * 0.5);
-            Eigen::Vector3d v2u( params.robot_l * 0.5 + params.calib_x_offset,  params.robot_w * 0.5,  params.robot_h * 0.5);
-            Eigen::Vector3d v3u(-params.robot_l * 0.5 + params.calib_x_offset,  params.robot_w * 0.5,  params.robot_h * 0.5);
+            Eigen::Vector3d v0b(-params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, -params.robot_h * 0.5);
+            Eigen::Vector3d v1b( params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, -params.robot_h * 0.5);
+            Eigen::Vector3d v2b( params.robot_l * 0.5 /*+ params.calib_x_offset*/,  params.robot_w * 0.5, -params.robot_h * 0.5);
+            Eigen::Vector3d v3b(-params.robot_l * 0.5 /*+ params.calib_x_offset*/,  params.robot_w * 0.5, -params.robot_h * 0.5);
+            Eigen::Vector3d v0u(-params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5,  params.robot_h * 0.5);
+            Eigen::Vector3d v1u( params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5,  params.robot_h * 0.5);
+            Eigen::Vector3d v2u( params.robot_l * 0.5 /*+ params.calib_x_offset*/,  params.robot_w * 0.5,  params.robot_h * 0.5);
+            Eigen::Vector3d v3u(-params.robot_l * 0.5 /*+ params.calib_x_offset*/,  params.robot_w * 0.5,  params.robot_h * 0.5);
 
             Eigen::Vector3d v0bt = p * v0b;
             Eigen::Vector3d v1bt = p * v1b;
