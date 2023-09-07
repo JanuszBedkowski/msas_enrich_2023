@@ -139,6 +139,8 @@ struct DemoOdometryParameters{
     float robot_lidar_offset = -0.2;
 
     int counter_fail = 0;
+
+    float calib_x = 0.0;
 };
 
 DemoOdometryParameters params;
@@ -384,6 +386,12 @@ void getCalibHeightAboveGround(const std_msgs::Float32::ConstPtr& msg)
     params.init = true;
 }
 
+void getCalibXOffset(const std_msgs::Float32::ConstPtr& msg)
+{
+    params.calib_x = msg->data;
+    //params.init = true;
+}
+
 void getSingleGoalForward(const nav_msgs::Path::Ptr &msg){
     params.counter_fail = 0;
     std::lock_guard<std::mutex> lck(mission_path_lock);
@@ -537,7 +545,7 @@ void PointCloudCallback(uint32_t handle, const uint8_t dev_type, LivoxLidarEther
             {
                 std::lock_guard<std::mutex> lck(imu_lock);
                 
-                tb_pose.px = 0.0;
+                tb_pose.px = params.calib_x;
                 tb_pose.py = 0.0;
                 tb_pose.pz = params.calib_height_above_ground;
                 tb_pose.om = params.euler.angle.roll / 180.0 * M_PI;
@@ -803,6 +811,7 @@ int main(int argc, char *argv[]){
         ros::Subscriber sub_get_current_map = nh.subscribe("get_current_map", 1, getCurrentMapCallback);
         ros::Subscriber sub_reset = nh.subscribe("reset_jackal", 1, resetCallback);
         ros::Subscriber sub_get_calib_height_above_ground = nh.subscribe("calib_height_above_ground", 1, getCalibHeightAboveGround);
+        ros::Subscriber sub_get_calib_x_offset = nh.subscribe("calib_x_offset", 1, getCalibXOffset);
         ros::Subscriber subub_single_goal_forward = nh.subscribe("single_goal_forward", 1, getSingleGoalForward);
         ros::Subscriber sub_abort_mission = nh.subscribe("abort_mission", 1, abortCallback);
         ros::Subscriber sub_multiple_goals_to_robot = nh.subscribe("multiple_goals_to_robot", 1, multiple_goals_to_robotCallback);
