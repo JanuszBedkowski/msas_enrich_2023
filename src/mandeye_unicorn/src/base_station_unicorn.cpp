@@ -978,7 +978,8 @@ bool initGL(int *argc, char **argv) {
     glutReshapeFunc(reshape);
 
     // default initialization
-    glClearColor(0.0, 0.0, 0.0, 1.0);
+    //glClearColor(0.0, 0.0, 0.0, 1.0);
+    glClearColor(1.0, 1.0, 1.0, 1.0);
     glEnable(GL_DEPTH_TEST);
 
     // viewport
@@ -1057,6 +1058,7 @@ void display() {
 
     if(params.show_buckets)
     {
+        glPointSize(params.pcs_point_size);
         std::lock_guard<std::mutex> lck(current_map_lock);
         glColor3f(1,0,0);
         glBegin(GL_POINTS);
@@ -1066,6 +1068,7 @@ void display() {
             }
         }
         glEnd();
+        glPointSize(1);
     }
 
     //robot pose
@@ -1097,7 +1100,7 @@ void display() {
         Eigen::Vector3d y1t = p * y1;
         Eigen::Vector3d y2t = p * y2;
 
-        glColor3f(1.0, 1.0, 1.0);
+        glColor3f(0.0, 0.0, 0.0);
         glBegin(GL_LINES);
             glVertex3f(x1t.x(), x1t.y(), x1t.z());
             glVertex3f(x2t.x(), x2t.y(), x2t.z());
@@ -1106,7 +1109,7 @@ void display() {
             glVertex3f(y2t.x(), y2t.y(), y2t.z());
         glEnd();
 
-        glColor3f(1.0, 0.2, 0.5);
+        glColor3f(0.0, 0.2, 0.5);
         glBegin(GL_LINES);
             Eigen::Vector3d v0b(-params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, -params.robot_h * 0.5);
             Eigen::Vector3d v1b( params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, -params.robot_h * 0.5);
@@ -1219,7 +1222,7 @@ void display() {
         }
         glEnd();
 
-        glColor3f(1,1,0);
+        glColor3f(0,0,0);
         glLineWidth(2);
         glBegin(GL_LINES);
         for(const auto &p:multiple_goals){
@@ -1229,14 +1232,14 @@ void display() {
         glEnd();
         glLineWidth(1);
 
-        glColor3f(1,1,1);
+        glColor3f(0,0,0);
         for(int i = 0; i < multiple_goals.size(); i++){
             glRasterPos3f(multiple_goals[i].goal(0,3), multiple_goals[i].goal(1,3) + 0.4, multiple_goals[i].goal(2,3) + 0.2);
 		    glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, std::to_string(i).c_str()[0]);
         }
         
         if(multiple_goals.size() >= 2){
-            glColor3f (1,1,1);
+            glColor3f (0,0,0);
             for(int i = 0; i < params.num_scans_from_end; i++){
                 if(multiple_goals.size() - 1 - i >= 0){
                     Eigen::Affine3d pose = multiple_goals[multiple_goals.size() - 1 - i].goal;
