@@ -110,7 +110,7 @@ float translate_x, translate_y = 0.0;
 //ros::NodeHandle *nh;
 //ros::Publisher pub_path;
 //ros::Publisher pub_vel;
-
+ros::Publisher pub_update_map;
 ros::Publisher pub_get_current_pc;
 ros::Publisher pub_get_current_map;
 ros::Publisher pub_reset_jackal;
@@ -537,6 +537,27 @@ void project_gui(BaseStationParameters &paramters)
             pub_calib_x_offset.publish(h);
         }
 
+        if(ImGui::Button("update_map_on")){
+            ros::NodeHandle nh;
+            std_msgs::Bool message;
+            message.data = true;
+            pub_update_map.publish(message);
+            
+            std::cout << "update_map_on" << std::endl;
+        }
+
+        ImGui::SameLine();
+
+        if(ImGui::Button("update_map_off")){
+            ros::NodeHandle nh;
+            std_msgs::Bool message;
+            message.data = false;
+            pub_update_map.publish(message);
+            
+            std::cout << "update_map_off" << std::endl;
+        }
+
+
         if(ImGui::Button("reset jackal (clear map)")){
             ros::NodeHandle nh;
             std_msgs::Bool reset;
@@ -928,6 +949,7 @@ int main(int argc, char *argv[]){
     pub_calib_height_above_ground = nh.advertise< std_msgs::Float32 > ("calib_height_above_ground", 1);
     pub_calib_x_offset = nh.advertise< std_msgs::Float32 > ("calib_x_offset", 1);
     pub_single_goal_forward = nh.advertise< nav_msgs::Path > ("single_goal_forward", 1);
+    pub_update_map = nh.advertise< std_msgs::Bool > ("update_map", 1);
 
     pub_get_last_goal_pc = nh.advertise<std_msgs::Int32> ("get_last_goal_pc", 1);
 

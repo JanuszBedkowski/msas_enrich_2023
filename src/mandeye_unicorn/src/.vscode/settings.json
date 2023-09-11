@@ -65,6 +65,7 @@
         "filesystem": "cpp",
         "optional": "cpp",
         "memory": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "random": "cpp"
     }
 }
