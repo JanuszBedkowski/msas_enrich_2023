@@ -68,6 +68,7 @@ float rotate_x = 0.0, rotate_y = 0.0;
 float translate_z = -30.0;
 float translate_x, translate_y = 0.0;
 
+
 struct Point3Di
 {
     Eigen::Vector3d point;
@@ -141,6 +142,8 @@ struct DemoOdometryParameters{
     int counter_fail = 0;
 
     float calib_x = 0.0;
+
+    bool update_map = true;
 };
 
 DemoOdometryParameters params;
@@ -379,6 +382,16 @@ void resetCallback(const std_msgs::Bool::ConstPtr& msg){
     std::cout << "resetCallback" << std::endl;
     params.init = true;
 }
+
+void update_mapCallback(const std_msgs::Bool::ConstPtr& msg){
+    
+    params.update_map = msg->data;
+    for(int i = 0; i < 1000; i++){
+        std::cout << "update_mapCallback " << int(params.update_map) << std::endl;
+    }
+}
+
+
 
 void getCalibHeightAboveGround(const std_msgs::Float32::ConstPtr& msg)
 {
@@ -824,6 +837,9 @@ int main(int argc, char *argv[]){
 
         ros::Subscriber sub_save_buckets = nh.subscribe("pub_save_buckets", 1, pub_save_bucketsCallback);
         ros::Subscriber sub_load_buckets = nh.subscribe("pub_load_buckets", 1, pub_load_bucketsCallback);
+
+
+        ros::Subscriber sub_update_map = nh.subscribe("update_map", 1, update_mapCallback);
 
 
         ros::Rate loop_rate(1);
@@ -1300,7 +1316,7 @@ void main_loop(bool render){
 				p.point = trajectory[trajectory.size()-1] * p.point;
 			}
 
-			update_rgd(Eigen::Vector3d(0.3, 0.3, 0.3), buckets, decimated_points);
+			if(params.update_map)update_rgd(Eigen::Vector3d(0.3, 0.3, 0.3), buckets, decimated_points);
 
             //send robot current pose
             static int count = 0;
