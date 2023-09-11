@@ -562,6 +562,8 @@ void PointCloudCallback(uint32_t handle, const uint8_t dev_type, LivoxLidarEther
 				const auto & p = p_point_data[i];
 
                 Eigen::Vector3d pt(p.x * 0.001, p.y * 0.001, p.z * 0.001);
+
+                if(pt.norm() > 0.2){
 				//if(fabs(pt.x()) < params.pc_filter_length * 0.5 && fabs(pt.y()) < params.pc_filter_width * 0.5){
 				//}else{
                     if(params.compensate_roll_pitch_with_imu){
@@ -577,6 +579,7 @@ void PointCloudCallback(uint32_t handle, const uint8_t dev_type, LivoxLidarEther
 						new_p.index_pose = 1;
                         points.push_back(new_p);
                     }
+                }
 				//}
 				if(params.init){
 					while (points.size() > params.number_max_points_init){
@@ -973,7 +976,7 @@ void mouse(int glut_button, int state, int x, int y) {
 
 void motion(int x, int y) {
     ImGuiIO& io = ImGui::GetIO();
-    io.MousePos = ImVec2((float)x, (float)y);
+    io.MousePos = ImVec2((float)x, (float)y);glPointSize(1);
 
     if (!io.WantCaptureMouse)
     {
@@ -1340,15 +1343,17 @@ void main_loop(bool render){
         {
             //const auto &point = all_points[i];
 
-            if(all_points[i].point.z() > 0.2 && all_points[i].point.z() < 1.8){
-                if(all_points[i].point.x() > 0.0 && all_points[i].point.x() < 0.4){
+            if(all_points[i].point.z() > 0.2 && all_points[i].point.z() < 1.0){
+                if(all_points[i].point.x() > 0.1 && all_points[i].point.x() < 0.4){
                     if(all_points[i].point.y() > -0.25 && all_points[i].point.y() < 0.25){
+                        std::cout << all_points[i].point.x() << " " << all_points[i].point.y() << " " << all_points[i].point.z() << std::endl;
                         count_front++;
                     }
                 }
 
-                if(all_points[i].point.x() > -0.6 && all_points[i].point.x() < 0.0){
+                if(all_points[i].point.x() > -0.45 && all_points[i].point.x() < -0.2){
                     if(all_points[i].point.y() > -0.25 && all_points[i].point.y() < 0.25){
+                        std::cout << all_points[i].point.x() << " " << all_points[i].point.y() << " " << all_points[i].point.z() << std::endl;
                         count_back++;
                     }
                 }
@@ -1363,6 +1368,7 @@ void main_loop(bool render){
             params.backward_speed_slow = 0;
             params.rot_speed = 0;
             params.rot_speed_slow = 0;
+            std::cout << "count_front: " << count_front << " count_back " << count_back << " EMERGENCY STOP" << std::endl;
         }      
 
 
