@@ -118,8 +118,8 @@ struct DemoOdometryParameters{
 	//double imu_yaw_prev = 0.0;
     int max_current_points = 1000000;
 
-    double rot_speed = 0.1;//0.5;
-    double rot_speed_slow = 0.01;//0.2;
+    double rot_speed = 0.25;//0.5;
+    double rot_speed_slow = 0.1;//0.2;
     double forward_speed_slow = 0.1;//0.2;
     double forward_speed = 0.3;
     double forward_speed_fast = 0.5;//1.0;
@@ -137,7 +137,7 @@ struct DemoOdometryParameters{
     std::string folder1 = "";
     std::string folder2 = "";
 
-    float robot_lidar_offset = -0.2;
+    float robot_lidar_offset = 0.0;
 
     int counter_fail = 0;
 
