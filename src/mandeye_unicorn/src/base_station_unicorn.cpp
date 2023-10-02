@@ -34,28 +34,33 @@
 #include <laszip/laszip_api.h>
 #include <portable-file-dialogs.h>
 
-struct LaserBeam {
-	Eigen::Vector3d position;
-	Eigen::Vector3d direction;
-	float distance;
-	float range;
+#include <nlohmann/json.hpp>
+
+struct LaserBeam
+{
+    Eigen::Vector3d position;
+    Eigen::Vector3d direction;
+    float distance;
+    float range;
 };
 
 struct Point3Di
 {
     Eigen::Vector3d point;
-	double timestamp;
+    double timestamp;
     float intensity;
     int index_pose;
 };
 
-struct PointCloud{
+struct PointCloud
+{
     std::vector<Point3Di> points;
     int decimation;
     bool show = true;
 };
 
-struct BaseStationParameters{
+struct BaseStationParameters
+{
     int major = 0;
     int minor = 0;
     double main_loop_time_execution = 0.0;
@@ -84,8 +89,8 @@ struct BaseStationParameters{
     bool single_goal_forward = false;
     bool multiple_goals = false;
 
-    Eigen::Vector3d goal_arrow_end = {0,0,0};
-    Eigen::Vector3d goal_arrow_begin = {0,0,0};
+    Eigen::Vector3d goal_arrow_end = {0, 0, 0};
+    Eigen::Vector3d goal_arrow_begin = {0, 0, 0};
 
     float calib_x_offset = 0.0;
 
@@ -97,7 +102,6 @@ float m_gizmo[] = {1, 0, 0, 0,
                    0, 0, 1, 0,
                    0, 0, 0, 1};
 
-
 const unsigned int window_width = 640;
 const unsigned int window_height = 480;
 int mouse_buttons = 0;
@@ -107,9 +111,9 @@ float rotate_x = 0.0, rotate_y = 0.0;
 float translate_z = -30.0;
 float translate_x, translate_y = 0.0;
 
-//ros::NodeHandle *nh;
-//ros::Publisher pub_path;
-//ros::Publisher pub_vel;
+// ros::NodeHandle *nh;
+// ros::Publisher pub_path;
+// ros::Publisher pub_vel;
 ros::Publisher pub_update_map;
 ros::Publisher pub_get_current_pc;
 ros::Publisher pub_get_current_map;
@@ -129,7 +133,7 @@ ros::Subscriber sub_get_current_map;
 ros::Subscriber sub_current_robot_pose;
 ros::Subscriber sub_current_mission_goal;
 
-//pub_current_robot_pose = nh.advertise<nav_msgs::Path>  ("current_robot_pose", 1);
+// pub_current_robot_pose = nh.advertise<nav_msgs::Path>  ("current_robot_pose", 1);
 
 BaseStationParameters params;
 
@@ -138,101 +142,101 @@ std::vector<Eigen::Vector3d> current_map;
 std::mutex point_clouds_lock;
 std::vector<PointCloud> point_clouds;
 
-bool load_pc_laz(std::string input_file_name, PointCloud &pc){
+bool load_pc_laz(std::string input_file_name, PointCloud &pc)
+{
     pc.decimation = 10;
     pc.show = true;
-    
+
     laszip_POINTER laszip_reader;
-	if (laszip_create(&laszip_reader))
-	{
-		fprintf(stderr, ":DLL ERROR: creating laszip reader\n");
-		/*PointCloud pc;
-		pc.m_pose = Eigen::Affine3d::Identity();
-		pc.m_initial_pose = pc.m_pose;
-		pc.pose = pose_tait_bryan_from_affine_matrix(pc.m_pose);
-		pc.gui_translation[0] = pc.pose.px;
-		pc.gui_translation[1] = pc.pose.py;
-		pc.gui_translation[2] = pc.pose.pz;
-		pc.gui_rotation[0] = rad2deg(pc.pose.om);
-		pc.gui_rotation[1] = rad2deg(pc.pose.fi);
-		pc.gui_rotation[2] = rad2deg(pc.pose.ka);
-		pc.file_name = input_file_names[i];
-		point_clouds.push_back(pc);*/
-		return false;
-	}
+    if (laszip_create(&laszip_reader))
+    {
+        fprintf(stderr, ":DLL ERROR: creating laszip reader\n");
+        /*PointCloud pc;
+        pc.m_pose = Eigen::Affine3d::Identity();
+        pc.m_initial_pose = pc.m_pose;
+        pc.pose = pose_tait_bryan_from_affine_matrix(pc.m_pose);
+        pc.gui_translation[0] = pc.pose.px;
+        pc.gui_translation[1] = pc.pose.py;
+        pc.gui_translation[2] = pc.pose.pz;
+        pc.gui_rotation[0] = rad2deg(pc.pose.om);
+        pc.gui_rotation[1] = rad2deg(pc.pose.fi);
+        pc.gui_rotation[2] = rad2deg(pc.pose.ka);
+        pc.file_name = input_file_names[i];
+        point_clouds.push_back(pc);*/
+        return false;
+    }
 
-	laszip_BOOL is_compressed = 0;
-	if (laszip_open_reader(laszip_reader, input_file_name.c_str(), &is_compressed))
-	{
-		fprintf(stderr, ":DLL ERROR: opening laszip reader for '%s'\n", input_file_name.c_str());
-		/*PointCloud pc;
-		pc.m_pose = Eigen::Affine3d::Identity();
-		pc.m_initial_pose = pc.m_pose;
-		pc.pose = pose_tait_bryan_from_affine_matrix(pc.m_pose);
-		pc.gui_translation[0] = pc.pose.px;
-		pc.gui_translation[1] = pc.pose.py;
-		pc.gui_translation[2] = pc.pose.pz;
-		pc.gui_rotation[0] = rad2deg(pc.pose.om);
-		pc.gui_rotation[1] = rad2deg(pc.pose.fi);
-		pc.gui_rotation[2] = rad2deg(pc.pose.ka);
-		pc.file_name = input_file_names[i];
-		point_clouds.push_back(pc);*/
-		return false;
-	}
-	std::cout << "compressed : " << is_compressed << std::endl;
-	laszip_header *header;
+    laszip_BOOL is_compressed = 0;
+    if (laszip_open_reader(laszip_reader, input_file_name.c_str(), &is_compressed))
+    {
+        fprintf(stderr, ":DLL ERROR: opening laszip reader for '%s'\n", input_file_name.c_str());
+        /*PointCloud pc;
+        pc.m_pose = Eigen::Affine3d::Identity();
+        pc.m_initial_pose = pc.m_pose;
+        pc.pose = pose_tait_bryan_from_affine_matrix(pc.m_pose);
+        pc.gui_translation[0] = pc.pose.px;
+        pc.gui_translation[1] = pc.pose.py;
+        pc.gui_translation[2] = pc.pose.pz;
+        pc.gui_rotation[0] = rad2deg(pc.pose.om);
+        pc.gui_rotation[1] = rad2deg(pc.pose.fi);
+        pc.gui_rotation[2] = rad2deg(pc.pose.ka);
+        pc.file_name = input_file_names[i];
+        point_clouds.push_back(pc);*/
+        return false;
+    }
+    std::cout << "compressed : " << is_compressed << std::endl;
+    laszip_header *header;
 
-	
-	if (laszip_get_header_pointer(laszip_reader, &header))
-	{
-		fprintf(stderr, ":DLL ERROR: getting header pointer from laszip reader\n");
-		/*PointCloud pc;
-		pc.m_pose = Eigen::Affine3d::Identity();
-		pc.m_initial_pose = pc.m_pose;
-		pc.pose = pose_tait_bryan_from_affine_matrix(pc.m_pose);
-		pc.gui_translation[0] = pc.pose.px;
-		pc.gui_translation[1] = pc.pose.py;
-		pc.gui_translation[2] = pc.pose.pz;
-		pc.gui_rotation[0] = rad2deg(pc.pose.om);
-		pc.gui_rotation[1] = rad2deg(pc.pose.fi);
-		pc.gui_rotation[2] = rad2deg(pc.pose.ka);
-		pc.file_name = input_file_names[i];
-		point_clouds.push_back(pc);*/
-		return false;
-	}
-	fprintf(stderr, "file '%s' contains %u points\n", input_file_name.c_str(), header->number_of_point_records);
-	laszip_point *point;
-	if (laszip_get_point_pointer(laszip_reader, &point))
-	{
-		fprintf(stderr, ":DLL ERROR: getting point pointer from laszip reader\n");
-		return false;
-	}
+    if (laszip_get_header_pointer(laszip_reader, &header))
+    {
+        fprintf(stderr, ":DLL ERROR: getting header pointer from laszip reader\n");
+        /*PointCloud pc;
+        pc.m_pose = Eigen::Affine3d::Identity();
+        pc.m_initial_pose = pc.m_pose;
+        pc.pose = pose_tait_bryan_from_affine_matrix(pc.m_pose);
+        pc.gui_translation[0] = pc.pose.px;
+        pc.gui_translation[1] = pc.pose.py;
+        pc.gui_translation[2] = pc.pose.pz;
+        pc.gui_rotation[0] = rad2deg(pc.pose.om);
+        pc.gui_rotation[1] = rad2deg(pc.pose.fi);
+        pc.gui_rotation[2] = rad2deg(pc.pose.ka);
+        pc.file_name = input_file_names[i];
+        point_clouds.push_back(pc);*/
+        return false;
+    }
+    fprintf(stderr, "file '%s' contains %u points\n", input_file_name.c_str(), header->number_of_point_records);
+    laszip_point *point;
+    if (laszip_get_point_pointer(laszip_reader, &point))
+    {
+        fprintf(stderr, ":DLL ERROR: getting point pointer from laszip reader\n");
+        return false;
+    }
 
-	//pc.m_pose = Eigen::Affine3d::Identity();
-	//pc.m_initial_pose = pc.m_pose;
-	//pc.pose = pose_tait_bryan_from_affine_matrix(pc.m_pose);
-	//pc.gui_translation[0] = pc.pose.px;
-	//pc.gui_translation[1] = pc.pose.py;
-	//pc.gui_translation[2] = pc.pose.pz;
-	//pc.gui_rotation[0] = rad2deg(pc.pose.om);
-	//pc.gui_rotation[1] = rad2deg(pc.pose.fi);
-	//pc.gui_rotation[2] = rad2deg(pc.pose.ka);
+    // pc.m_pose = Eigen::Affine3d::Identity();
+    // pc.m_initial_pose = pc.m_pose;
+    // pc.pose = pose_tait_bryan_from_affine_matrix(pc.m_pose);
+    // pc.gui_translation[0] = pc.pose.px;
+    // pc.gui_translation[1] = pc.pose.py;
+    // pc.gui_translation[2] = pc.pose.pz;
+    // pc.gui_rotation[0] = rad2deg(pc.pose.om);
+    // pc.gui_rotation[1] = rad2deg(pc.pose.fi);
+    // pc.gui_rotation[2] = rad2deg(pc.pose.ka);
 
-	for (int j = 0; j < header->number_of_point_records; j++)
-	{
-		if (laszip_read_point(laszip_reader))
-		{
-			fprintf(stderr, ":DLL ERROR: reading point %u\n", j);
-			continue;
-		}
+    for (int j = 0; j < header->number_of_point_records; j++)
+    {
+        if (laszip_read_point(laszip_reader))
+        {
+            fprintf(stderr, ":DLL ERROR: reading point %u\n", j);
+            continue;
+        }
 
-		//LAZPoint p;
+        // LAZPoint p;
         Eigen::Vector3d p;
-		p.x() = header->x_offset + header->x_scale_factor * static_cast<double>(point->X);
-		p.y() = header->y_offset + header->y_scale_factor * static_cast<double>(point->Y);
-		p.z() = header->z_offset + header->z_scale_factor * static_cast<double>(point->Z);
+        p.x() = header->x_offset + header->x_scale_factor * static_cast<double>(point->X);
+        p.y() = header->y_offset + header->y_scale_factor * static_cast<double>(point->Y);
+        p.z() = header->z_offset + header->z_scale_factor * static_cast<double>(point->Z);
 
-		//Eigen::Vector3d pp(p.x, p.y, p.z);
+        // Eigen::Vector3d pp(p.x, p.y, p.z);
         Point3Di ppp;
         ppp.index_pose = 0;
         ppp.intensity = point->intensity;
@@ -253,22 +257,99 @@ bool load_pc_laz(std::string input_file_name, PointCloud &pc){
             bool show = true;
         };*/
 
-
-        
-        //pc.points_local.push_back(pp);
-		//pc.intensities.push_back(point->intensity);
-	}
-	laszip_close_reader(laszip_reader);
+        // pc.points_local.push_back(pp);
+        // pc.intensities.push_back(point->intensity);
+    }
+    laszip_close_reader(laszip_reader);
 }
 
-
-struct MuLtipleGoal{
+struct Goal
+{
     Eigen::Affine3d goal;
     bool gizmo = false;
 };
 
-std::mutex multiple_goals_lock;
-std::vector<MuLtipleGoal> multiple_goals;
+typedef std::vector<Goal> Goals;
+typedef std::vector<Goals> MultipleGoals;
+
+std::mutex multiple_goals_lock = {};
+size_t multiple_goals_working_index = 0;
+MultipleGoals multiple_goals = {{}};
+
+bool save_multiple_goals(const std::string &path)
+{
+    nlohmann::json multiple_goals_json = {};
+
+    multiple_goals_json["num_goals"] = multiple_goals.size();
+    multiple_goals_json["multiple_goals_working_index"] = multiple_goals_working_index;
+    multiple_goals_json["goals"] = nlohmann ::json::array();
+
+    for (const auto &goals : multiple_goals)
+    {
+        nlohmann::json goals_json = nlohmann::json::array();
+
+        for (const auto &goal : goals)
+        {
+            Eigen::Matrix4d goal_matrix = goal.goal.matrix();
+
+            nlohmann::json goal_json = {};
+            goal_json["goal"] = std::vector<double>(goal_matrix.data(), goal_matrix.data() + goal_matrix.size());
+            goal_json["gizmo"] = goal.gizmo;
+
+            goals_json.push_back(goal_json);
+        }
+
+        multiple_goals_json["goals"].push_back(goals_json);
+    }
+
+    if (std::ofstream file = std::ofstream(path, std::ios::out | std::ios::binary))
+    {
+        file << multiple_goals_json.dump(2);
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool load_multiple_goals(const std::string &path)
+{
+    multiple_goals.clear();
+
+    if (std::ifstream file = std::ifstream(path, std::ios::in | std::ios::binary))
+    {
+        nlohmann::json multiple_goals_json = nlohmann::json::parse(file);
+
+        const size_t num_goals = multiple_goals_json["num_goals"];
+
+        multiple_goals_working_index = multiple_goals_json["multiple_goals_working_index"];
+        multiple_goals.resize(num_goals);
+
+        for (size_t goals_index = 0; goals_index < num_goals; goals_index++)
+        {
+            nlohmann::json goals_json = multiple_goals_json["goals"][goals_index];
+
+            for (auto goal_json : goals_json)
+            {
+                const auto pose_data = goal_json["goal"].get<std::vector<double>>();
+
+                Goal goal = {};
+                goal.goal = Eigen::Affine3d(Eigen::Matrix4d(pose_data.data()));
+                goal.gizmo = goal_json["gizmo"];
+
+                multiple_goals[goals_index].push_back(goal);
+            }
+        }
+    }
+    else
+    {
+        return false;
+    }
+
+    return true;
+}
 
 bool initGL(int *argc, char **argv);
 void display();
@@ -279,23 +360,23 @@ void idle(void);
 void main_loop(bool render);
 Eigen::Vector3d GLWidgetGetOGLPos(int x, int y);
 
-void currentPointCloudCallback(const pcl::PointCloud<pcl::PointXYZI>::Ptr& msg)
+void currentPointCloudCallback(const pcl::PointCloud<pcl::PointXYZI>::Ptr &msg)
 {
     std::lock_guard<std::mutex> lck(point_clouds_lock);
-    //current_points.clear();
+    // current_points.clear();
     std::vector<Point3Di> current_points;
 
     int pc_count = 0;
     for (pcl::PointCloud<pcl::PointXYZI>::iterator it = msg->begin(); it != msg->end(); ++it)
-	{
+    {
         Point3Di p;
         p.index_pose = 0;
         p.intensity = it->intensity;
         p.timestamp = 0;
         p.point = Eigen::Vector3d(it->x, it->y, it->z);
         current_points.push_back(p);
-        pc_count ++;
-	}
+        pc_count++;
+    }
 
     PointCloud pc;
     pc.decimation = 1;
@@ -305,20 +386,21 @@ void currentPointCloudCallback(const pcl::PointCloud<pcl::PointXYZI>::Ptr& msg)
     std::cout << "currentPointCloudCallback: [" << pc_count << " points]" << std::endl;
 }
 
-void currentMapCallback(const pcl::PointCloud<pcl::PointXYZ>::Ptr& msg)
+void currentMapCallback(const pcl::PointCloud<pcl::PointXYZ>::Ptr &msg)
 {
     std::lock_guard<std::mutex> lck(current_map_lock);
     current_map.clear();
     int pc_count = 0;
     for (pcl::PointCloud<pcl::PointXYZ>::iterator it = msg->begin(); it != msg->end(); ++it)
-	{
+    {
         current_map.emplace_back(it->x, it->y, it->z);
-        pc_count ++;
-	}
+        pc_count++;
+    }
     std::cout << "currentMapCallback: [" << pc_count << " active buckets]" << std::endl;
 }
 
-void currentRobotPoseCallback(const nav_msgs::Path::Ptr &msg){
+void currentRobotPoseCallback(const nav_msgs::Path::Ptr &msg)
+{
     std::lock_guard<std::mutex> lck(params.current_robot_pose_lock);
 
     params.current_robot_pose.translation().x() = msg->poses[0].pose.position.x;
@@ -334,10 +416,11 @@ void currentRobotPoseCallback(const nav_msgs::Path::Ptr &msg){
     params.current_robot_pose.linear() = q.toRotationMatrix();
 }
 
-void currentMissionGoalCallback(const nav_msgs::Path::Ptr &msg){
+void currentMissionGoalCallback(const nav_msgs::Path::Ptr &msg)
+{
 
-    //std::mutex current_mission_goal_lock;
-    //E//igen::Affine3d current_mission_goal = Eigen::Affine3d::Identity();
+    // std::mutex current_mission_goal_lock;
+    // E//igen::Affine3d current_mission_goal = Eigen::Affine3d::Identity();
 
     std::lock_guard<std::mutex> lck(params.current_mission_goal_lock);
 
@@ -496,28 +579,28 @@ bool exportLaz(const std::string &filename,
     return true;
 }
 
-
-
 void project_gui(BaseStationParameters &paramters)
 {
-	if(ImGui::Begin(std::string("Project demo odometry v" + std::to_string(paramters.major) + "." + std::to_string(paramters.minor)).c_str())){
-	    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    if (ImGui::Begin(std::string("Project demo odometry v" + std::to_string(paramters.major) + "." + std::to_string(paramters.minor)).c_str()))
+    {
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::Text("main_loop_time_execution %.3f ms", params.main_loop_time_execution);
-        ImGui::Text("----Point Clouds visualisation begin----"); 
+        ImGui::Text("----Point Clouds visualisation begin----");
         ImGui::InputFloat("intensity_offset", &params.intensity_offset);
         ImGui::InputInt("point_size", &params.pcs_point_size);
-        if(params.pcs_point_size < 1){
+        if (params.pcs_point_size < 1)
+        {
             params.pcs_point_size = 1;
         }
-        ImGui::Text("----Point Clouds visualisation end----"); 
+        ImGui::Text("----Point Clouds visualisation end----");
 
         ImGui::SliderFloat("visualization_height_threshold", &params.visualization_height_threshold, 0, 40);
-                
 
-        //pub_calib_height_above_ground
+        // pub_calib_height_above_ground
         float calib_height_above_ground_prev = params.calib_height_above_ground;
         ImGui::InputFloat("calib_height_above_ground", &params.calib_height_above_ground);
-        if(calib_height_above_ground_prev != params.calib_height_above_ground){
+        if (calib_height_above_ground_prev != params.calib_height_above_ground)
+        {
             ros::NodeHandle nh;
             std_msgs::Float32 h;
             h.data = params.calib_height_above_ground;
@@ -528,7 +611,8 @@ void project_gui(BaseStationParameters &paramters)
 
         float calib_x_offset_prev = params.calib_x_offset;
         ImGui::InputFloat("calib_x_offset", &params.calib_x_offset);
-        if(calib_x_offset_prev != params.calib_x_offset){
+        if (calib_x_offset_prev != params.calib_x_offset)
+        {
             ros::NodeHandle nh;
             std_msgs::Float32 h;
             h.data = params.calib_x_offset;
@@ -537,28 +621,30 @@ void project_gui(BaseStationParameters &paramters)
             pub_calib_x_offset.publish(h);
         }
 
-        if(ImGui::Button("update_map_on")){
+        if (ImGui::Button("update_map_on"))
+        {
             ros::NodeHandle nh;
             std_msgs::Bool message;
             message.data = true;
             pub_update_map.publish(message);
-            
+
             std::cout << "update_map_on" << std::endl;
         }
 
         ImGui::SameLine();
 
-        if(ImGui::Button("update_map_off")){
+        if (ImGui::Button("update_map_off"))
+        {
             ros::NodeHandle nh;
             std_msgs::Bool message;
             message.data = false;
             pub_update_map.publish(message);
-            
+
             std::cout << "update_map_off" << std::endl;
         }
 
-
-        if(ImGui::Button("reset jackal (clear map)")){
+        if (ImGui::Button("reset jackal (clear map)"))
+        {
             ros::NodeHandle nh;
             std_msgs::Bool reset;
             reset.data = true;
@@ -566,7 +652,8 @@ void project_gui(BaseStationParameters &paramters)
             std::cout << "reset jackal (clear map)" << std::endl;
         }
 
-        if(ImGui::Button("get current point cloud")){
+        if (ImGui::Button("get current point cloud"))
+        {
             ros::NodeHandle nh;
             std_msgs::Int32 get_current_pc;
             get_current_pc.data = params.get_current_point_cloud_nr_points;
@@ -576,7 +663,8 @@ void project_gui(BaseStationParameters &paramters)
         ImGui::SameLine();
         ImGui::InputInt("nr_points", &params.get_current_point_cloud_nr_points);
 
-        if(ImGui::Button("get current map (means in buckets)")){
+        if (ImGui::Button("get current map (means in buckets)"))
+        {
             ros::NodeHandle nh;
             std_msgs::Bool get;
             get.data = true;
@@ -588,12 +676,13 @@ void project_gui(BaseStationParameters &paramters)
         ImGui::Checkbox("show", &params.show_buckets);
 
         ImGui::Text("-------------------------Planner--------------------------------");
-        if(ImGui::Button("ABORT MISSION")){
+        if (ImGui::Button("ABORT MISSION"))
+        {
             std_msgs::Bool abort;
             abort.data = true;
             pub_abort.publish(abort);
             static int count = 0;
-            std::cout << "[" << count++ <<"] ABORT" << std::endl;
+            std::cout << "[" << count++ << "] ABORT" << std::endl;
 
             {
                 std::lock_guard<std::mutex> lckg(params.current_mission_goal_lock);
@@ -602,100 +691,143 @@ void project_gui(BaseStationParameters &paramters)
         }
 
         ImGui::Checkbox("planner_mode", &params.planner_mode);
-        
-        if(params.planner_mode){
+
+        if (params.planner_mode)
+        {
             ImGui::Checkbox("single_goal_forward", &params.single_goal_forward);
-            if(params.single_goal_forward){
+            if (params.single_goal_forward)
+            {
                 params.multiple_goals = false;
             }
             ImGui::Checkbox("multiple_goals", &params.multiple_goals);
-            if(params.multiple_goals){
+            if (params.multiple_goals)
+            {
                 params.single_goal_forward = false;
             }
-        }else{
+        }
+        else
+        {
             params.single_goal_forward = false;
             params.multiple_goals = false;
         }
 
-        //bool planner_mode = false;
-        //bool single_goal_forward = fasle;
+        // bool planner_mode = false;
+        // bool single_goal_forward = fasle;
         ImGui::Text("-------------------------Multiple Goals------------------------------");
         {
             std::lock_guard<std::mutex> lck(multiple_goals_lock);
-            //for(auto &goal:multiple_goals){
 
-            //}
-            int index_remove = -1;
-            for(int i = 0; i < multiple_goals.size(); i++){
-                std::string text = "gizmo [" + std::to_string(i) + "]";
-                ImGui::Checkbox(text.c_str(), &multiple_goals[i].gizmo);
+            if (ImGui::SmallButton("Save"))
+            {
+                save_multiple_goals("multiple_goals.json");
+            }
 
-                if(multiple_goals[i].gizmo){
-                    params.single_goal_forward = false;
-                    params.multiple_goals = false;
-                    params.planner_mode = false;
-                    for (size_t j = 0; j < multiple_goals.size(); j++)
-                    {
-                        if (i != j)
-                        {
-                            multiple_goals[j].gizmo = false;
-                        }
-                    }
-                    m_gizmo[0] = (float)multiple_goals[i].goal(0, 0);
-                    m_gizmo[1] = (float)multiple_goals[i].goal(1, 0);
-                    m_gizmo[2] = (float)multiple_goals[i].goal(2, 0);
-                    m_gizmo[3] = (float)multiple_goals[i].goal(3, 0);
-                    m_gizmo[4] = (float)multiple_goals[i].goal(0, 1);
-                    m_gizmo[5] = (float)multiple_goals[i].goal(1, 1);
-                    m_gizmo[6] = (float)multiple_goals[i].goal(2, 1);
-                    m_gizmo[7] = (float)multiple_goals[i].goal(3, 1);
-                    m_gizmo[8] = (float)multiple_goals[i].goal(0, 2);
-                    m_gizmo[9] = (float)multiple_goals[i].goal(1, 2);
-                    m_gizmo[10] = (float)multiple_goals[i].goal(2, 2);
-                    m_gizmo[11] = (float)multiple_goals[i].goal(3, 2);
-                    m_gizmo[12] = (float)multiple_goals[i].goal(0, 3);
-                    m_gizmo[13] = (float)multiple_goals[i].goal(1, 3);
-                    m_gizmo[14] = (float)multiple_goals[i].goal(2, 3);
-                    m_gizmo[15] = (float)multiple_goals[i].goal(3, 3);
+            if (ImGui::SmallButton("Load"))
+            {
+                load_multiple_goals("multiple_goals.json");
+            }
+
+            if (ImGui::SmallButton("Add Goals"))
+            {
+                multiple_goals.push_back({});
+            }
+
+            ImGui::Text("Multiple Goals : %zu", multiple_goals.size());
+            for (size_t goals_index = 0; goals_index < multiple_goals.size(); goals_index++)
+            {
+                ImGui::Text(" - Goals[%zu] : %zu waypoints", goals_index, multiple_goals[goals_index].size());
+
+                const std::string button_text = std::string("select ") + std::to_string(goals_index);
+
+                ImGui::SameLine();
+                if (ImGui::SmallButton(button_text.c_str()))
+                {
+                    multiple_goals_working_index = goals_index;
                 }
 
                 ImGui::SameLine();
-                text = "remove goal[" + std::to_string(i) + "]";
-                if(ImGui::Button(text.c_str())){
-                    index_remove = i;
-                }
+                ImGui::Text("[%c]", (goals_index == multiple_goals_working_index) ? 'X' : ' ');
             }
 
-            if(index_remove != -1){
-                std::vector<MuLtipleGoal> new_multiple_goals;
-                for(int i = 0; i < multiple_goals.size(); i++){
-                    if(i != index_remove){
-                        new_multiple_goals.push_back(multiple_goals[i]);
+            if (ImGui::TreeNode("Goals Waypoints"))
+            {
+                int index_remove = -1;
+                for (int i = 0; i < multiple_goals[multiple_goals_working_index].size(); i++)
+                {
+                    std::string text = "gizmo [" + std::to_string(i) + "]";
+                    ImGui::Checkbox(text.c_str(), &multiple_goals[multiple_goals_working_index][i].gizmo);
+
+                    if (multiple_goals[multiple_goals_working_index][i].gizmo)
+                    {
+                        params.single_goal_forward = false;
+                        params.multiple_goals = false;
+                        params.planner_mode = false;
+                        for (size_t j = 0; j < multiple_goals[multiple_goals_working_index].size(); j++)
+                        {
+                            if (i != j)
+                            {
+                                multiple_goals[multiple_goals_working_index][j].gizmo = false;
+                            }
+                        }
+
+                        for (int c = 0; c < 4; c++)
+                        {
+                            for (int r = 0; r < 4; r++)
+                            {
+                                m_gizmo[c * 4 + r] = (float)multiple_goals[multiple_goals_working_index][i].goal(r, c);
+                            }
+                        }
+                    }
+
+                    ImGui::SameLine();
+                    text = "remove goal[" + std::to_string(i) + "]";
+                    if (ImGui::Button(text.c_str()))
+                    {
+                        index_remove = i;
                     }
                 }
-                multiple_goals = new_multiple_goals;
+
+                if (index_remove != -1)
+                {
+                    std::vector<Goal> new_multiple_goals;
+                    for (int i = 0; i < multiple_goals[multiple_goals_working_index].size(); i++)
+                    {
+                        if (i != index_remove)
+                        {
+                            new_multiple_goals.push_back(multiple_goals[multiple_goals_working_index][i]);
+                        }
+                    }
+                    multiple_goals[multiple_goals_working_index] = new_multiple_goals;
+                }
+
+                ImGui::TreePop();
             }
 
-            if(multiple_goals.size() >= 2){
-                //static int num = 0;
+            if (multiple_goals[multiple_goals_working_index].size() >= 2)
+            {
+                // static int num = 0;
                 ImGui::InputInt("num_scans_from_end", &params.num_scans_from_end);
-                if(params.num_scans_from_end < 0){
+                if (params.num_scans_from_end < 0)
+                {
                     params.num_scans_from_end = 0;
                 }
-                if(params.num_scans_from_end > multiple_goals.size()){
-                    params.num_scans_from_end = multiple_goals.size();
+                if (params.num_scans_from_end > multiple_goals[multiple_goals_working_index].size())
+                {
+                    params.num_scans_from_end = multiple_goals[multiple_goals_working_index].size();
                 }
 
-                //ImGui::SameLine();
-                if(ImGui::Button("set on robot")){
+                // ImGui::SameLine();
+                if (ImGui::Button("set on robot"))
+                {
                     nav_msgs::Path destination;
                     destination.header.frame_id = "odom";
                     destination.header.stamp = ros::Time::now();
-                    destination.poses.resize(multiple_goals.size());
-                    std::cout << "Sending " << multiple_goals.size() << " goals" << std::endl;
-                    for(int i = 0; i < multiple_goals.size(); i++){
-                        Eigen::Affine3d goal = multiple_goals[i].goal;
-                        auto & p = destination.poses[i];
+                    destination.poses.resize(multiple_goals[multiple_goals_working_index].size());
+                    std::cout << "Sending " << multiple_goals[multiple_goals_working_index].size() << " goals" << std::endl;
+                    for (int i = 0; i < multiple_goals[multiple_goals_working_index].size(); i++)
+                    {
+                        Eigen::Affine3d goal = multiple_goals[multiple_goals_working_index][i].goal;
+                        auto &p = destination.poses[i];
                         p.pose.position.x = goal.translation().x();
                         p.pose.position.y = goal.translation().y();
                         p.pose.position.z = goal.translation().z();
@@ -708,8 +840,9 @@ void project_gui(BaseStationParameters &paramters)
                     }
                 }
                 ImGui::SameLine();
-                if(ImGui::Button("execute")){
-                    //pub_multiple_goals_to_robot_execute = nh.advertise< std_msgs::Int32 > ("multiple_goals_to_robot_execute", 1);
+                if (ImGui::Button("execute"))
+                {
+                    // pub_multiple_goals_to_robot_execute = nh.advertise< std_msgs::Int32 > ("multiple_goals_to_robot_execute", 1);
                     ros::NodeHandle nh;
                     std_msgs::Int32 num_scans_from_end;
                     num_scans_from_end.data = params.num_scans_from_end;
@@ -725,7 +858,8 @@ void project_gui(BaseStationParameters &paramters)
         }
 
         ImGui::Text("-------------------------Point Clouds--------------------------------");
-        if(ImGui::Button("get point cloud from last goal")){
+        if (ImGui::Button("get point cloud from last goal"))
+        {
             ros::NodeHandle nh;
             std_msgs::Int32 get_current_pc;
             get_current_pc.data = params.get_current_point_cloud_nr_points;
@@ -735,7 +869,8 @@ void project_gui(BaseStationParameters &paramters)
         {
             std::lock_guard<std::mutex> lck(point_clouds_lock);
 
-            if(ImGui::Button("Load Point Cloud (laz)")){
+            if (ImGui::Button("Load Point Cloud (laz)"))
+            {
                 static std::shared_ptr<pfd::open_file> open_file;
                 std::vector<std::string> input_file_names;
                 ImGui::PushItemFlag(ImGuiItemFlags_Disabled, (bool)open_file);
@@ -760,39 +895,43 @@ void project_gui(BaseStationParameters &paramters)
                         load_pc_laz(input_file_names[i], pc);
                         point_clouds.push_back(pc);
 
-                        //std::cout << input_file_names[i] << std::endl;
+                        // std::cout << input_file_names[i] << std::endl;
                     }
                 }
-                //ToDo
-                //struct PointCloud{
-                //    std::vector<Point3Di> points;
-                //    int decimation;
-                //    bool show = true;
-                //};
-
+                // ToDo
+                // struct PointCloud{
+                //     std::vector<Point3Di> points;
+                //     int decimation;
+                //     bool show = true;
+                // };
             }
 
-            //ImGui::SameLine();
+            // ImGui::SameLine();
 
-            if(point_clouds.size() > 0){
-                if(ImGui::Button("Export ALL as single Point Cloud (laz)")){
+            if (point_clouds.size() > 0)
+            {
+                if (ImGui::Button("Export ALL as single Point Cloud (laz)"))
+                {
                     std::vector<Point3Di> points;
-                    for (int i = 0; i < point_clouds.size(); i++){
-                        for(int p = 0; p < point_clouds[i].points.size(); p++){
+                    for (int i = 0; i < point_clouds.size(); i++)
+                    {
+                        for (int p = 0; p < point_clouds[i].points.size(); p++)
+                        {
                             points.push_back(point_clouds[i].points[p]);
                         }
                     }
 
                     {
                         std::lock_guard<std::mutex> lck(current_map_lock);
-                        for(const auto &p:current_map){
+                        for (const auto &p : current_map)
+                        {
                             Point3Di pp;
                             pp.index_pose = 0;
                             pp.intensity = 100;
                             pp.timestamp = 0;
                             pp.point = p;
                             points.push_back(pp);
-                         }
+                        }
                     }
 
                     std::shared_ptr<pfd::save_file> save_file;
@@ -807,50 +946,54 @@ void project_gui(BaseStationParameters &paramters)
                     std::thread t1(t);
                     t1.join();
 
-
                     if (output_file_name.size() > 0)
                     {
                         exportLaz(output_file_name, points);
-                    }//
+                    } //
 
-
-                    //ToDo
-                    //struct PointCloud{
-                    //    std::vector<Point3Di> points;
-                    //    int decimation;
-                    //    bool show = true;
-                    //};
-
+                    // ToDo
+                    // struct PointCloud{
+                    //     std::vector<Point3Di> points;
+                    //     int decimation;
+                    //     bool show = true;
+                    // };
                 }
             }
-        
+
             int index_to_remove = -1;
-            for (int i = 0; i < point_clouds.size(); i++){
+            for (int i = 0; i < point_clouds.size(); i++)
+            {
                 std::string text = "show [" + std::to_string(i) + "]";
                 ImGui::Checkbox(text.c_str(), &point_clouds[i].show);
 
                 ImGui::SameLine();
                 std::string text_dec = "dec [" + std::to_string(i) + "]";
                 ImGui::InputInt(text_dec.c_str(), &point_clouds[i].decimation);
-                if(point_clouds[i].decimation < 1){
+                if (point_clouds[i].decimation < 1)
+                {
                     point_clouds[i].decimation = 1;
                 }
                 ImGui::SameLine();
                 std::string text_rem = "remove pc[" + std::to_string(i) + "]";
-                if(ImGui::Button(text_rem.c_str())){
+                if (ImGui::Button(text_rem.c_str()))
+                {
                     index_to_remove = i;
                 }
                 ImGui::SameLine();
-                if(ImGui::Button("Save Point Cloud (laz)")){
+                if (ImGui::Button("Save Point Cloud (laz)"))
+                {
                     std::vector<Point3Di> points;
-                    for (int ii = 0; ii < point_clouds[i].points.size(); ii++){
-                        //for(int p = 0; p < point_clouds[i].points.size(); p++){
-                        //    points.push_back(point_clouds[i].points[p]);
-                        //}
+                    for (int ii = 0; ii < point_clouds[i].points.size(); ii++)
+                    {
+                        // for(int p = 0; p < point_clouds[i].points.size(); p++){
+                        //     points.push_back(point_clouds[i].points[p]);
+                        // }
                         points.push_back(point_clouds[i].points[ii]);
                     }
-                    for (int i = 0; i < point_clouds.size(); i++){
-                        for(int p = 0; p < point_clouds[i].points.size(); p++){
+                    for (int i = 0; i < point_clouds.size(); i++)
+                    {
+                        for (int p = 0; p < point_clouds[i].points.size(); p++)
+                        {
                             points.push_back(point_clouds[i].points[p]);
                         }
                     }
@@ -867,23 +1010,23 @@ void project_gui(BaseStationParameters &paramters)
                     std::thread t1(t);
                     t1.join();
 
-
                     if (output_file_name.size() > 0)
                     {
                         exportLaz(output_file_name, points);
-                    }//
+                    } //
 
-
-                    //ToDo
-                    //bool exportLaz(const std::string &filename,
-                    //    const std::vector<Point3Di> &pointcloud)
+                    // ToDo
+                    // bool exportLaz(const std::string &filename,
+                    //     const std::vector<Point3Di> &pointcloud)
                 }
-
             }
-            if(index_to_remove != -1){
+            if (index_to_remove != -1)
+            {
                 std::vector<PointCloud> new_point_clouds;
-                for (int j = 0; j < point_clouds.size(); j++){
-                    if(index_to_remove != j){
+                for (int j = 0; j < point_clouds.size(); j++)
+                {
+                    if (index_to_remove != j)
+                    {
                         new_point_clouds.push_back(point_clouds[j]);
                     }
                 }
@@ -891,7 +1034,8 @@ void project_gui(BaseStationParameters &paramters)
             }
         }
 
-        if(ImGui::Button("save_buckets")){
+        if (ImGui::Button("save_buckets"))
+        {
             ros::NodeHandle nh;
             std_msgs::Int32 get_current_pc;
             get_current_pc.data = 1;
@@ -899,7 +1043,8 @@ void project_gui(BaseStationParameters &paramters)
             std::cout << "send pub_save_buckets" << std::endl;
         }
         ImGui::SameLine();
-        if(ImGui::Button("load_buckets")){
+        if (ImGui::Button("load_buckets"))
+        {
             ros::NodeHandle nh;
             std_msgs::Int32 get_current_pc;
             get_current_pc.data = 1;
@@ -907,9 +1052,8 @@ void project_gui(BaseStationParameters &paramters)
             std::cout << "send pub_load_buckets" << std::endl;
         }
 
-//ros::Publisher pub_save_buckets;
-//ros::Publisher pub_load_buckets;
-
+        // ros::Publisher pub_save_buckets;
+        // ros::Publisher pub_load_buckets;
 
         /*
         if (ImGui::Button("Path")){
@@ -936,48 +1080,47 @@ void project_gui(BaseStationParameters &paramters)
     }
 }
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[])
+{
     params.major = 0;
-	params.minor = 1;
+    params.minor = 1;
 
     ros::init(argc, argv, "BaseStationUnicorn");
-    
+
     ros::NodeHandle nh;
-    pub_get_current_pc = nh.advertise<std_msgs::Int32> ("get_current_pc", 1);
-    pub_get_current_map = nh.advertise< std_msgs::Bool > ("get_current_map", 1);
-    pub_reset_jackal = nh.advertise< std_msgs::Bool > ("reset_jackal", 1);
-    pub_calib_height_above_ground = nh.advertise< std_msgs::Float32 > ("calib_height_above_ground", 1);
-    pub_calib_x_offset = nh.advertise< std_msgs::Float32 > ("calib_x_offset", 1);
-    pub_single_goal_forward = nh.advertise< nav_msgs::Path > ("single_goal_forward", 1);
-    pub_update_map = nh.advertise< std_msgs::Bool > ("update_map", 1);
+    pub_get_current_pc = nh.advertise<std_msgs::Int32>("get_current_pc", 1);
+    pub_get_current_map = nh.advertise<std_msgs::Bool>("get_current_map", 1);
+    pub_reset_jackal = nh.advertise<std_msgs::Bool>("reset_jackal", 1);
+    pub_calib_height_above_ground = nh.advertise<std_msgs::Float32>("calib_height_above_ground", 1);
+    pub_calib_x_offset = nh.advertise<std_msgs::Float32>("calib_x_offset", 1);
+    pub_single_goal_forward = nh.advertise<nav_msgs::Path>("single_goal_forward", 1);
+    pub_update_map = nh.advertise<std_msgs::Bool>("update_map", 1);
 
-    pub_get_last_goal_pc = nh.advertise<std_msgs::Int32> ("get_last_goal_pc", 1);
+    pub_get_last_goal_pc = nh.advertise<std_msgs::Int32>("get_last_goal_pc", 1);
 
-    pub_multiple_goals_to_robot = nh.advertise< nav_msgs::Path > ("multiple_goals_to_robot", 1);
-    pub_multiple_goals_to_robot_execute = nh.advertise< std_msgs::Int32 > ("multiple_goals_to_robot_execute", 1);
+    pub_multiple_goals_to_robot = nh.advertise<nav_msgs::Path>("multiple_goals_to_robot", 1);
+    pub_multiple_goals_to_robot_execute = nh.advertise<std_msgs::Int32>("multiple_goals_to_robot_execute", 1);
 
-    pub_save_buckets = nh.advertise<std_msgs::Int32> ("pub_save_buckets", 1);
-    pub_load_buckets = nh.advertise<std_msgs::Int32> ("pub_load_buckets", 1);
+    pub_save_buckets = nh.advertise<std_msgs::Int32>("pub_save_buckets", 1);
+    pub_load_buckets = nh.advertise<std_msgs::Int32>("pub_load_buckets", 1);
 
-//ros::Publisher pub_save_buckets;
-//ros::Publisher pub_load_buckets;
+    // ros::Publisher pub_save_buckets;
+    // ros::Publisher pub_load_buckets;
 
-
-    //pub_current_robot_pose = nh.advertise<nav_msgs::Path>  ("current_robot_pose", 1);
-
+    // pub_current_robot_pose = nh.advertise<nav_msgs::Path>  ("current_robot_pose", 1);
 
     sub_get_current_pc = nh.subscribe("current_point_cloud", 1, currentPointCloudCallback);
     sub_get_current_map = nh.subscribe("current_map", 1, currentMapCallback);
     sub_current_robot_pose = nh.subscribe("current_robot_pose", 1, currentRobotPoseCallback);
     sub_current_mission_goal = nh.subscribe("current_mission_goal", 1, currentMissionGoalCallback);
 
-    pub_abort = nh.advertise< std_msgs::Bool > ("abort_mission", 1);
-    //pub_path = nh.advertise< nav_msgs::Path > ("path", 1);
-    //pub_vel = nh.advertise< geometry_msgs::Twist >("cmd_vel", 1);
+    pub_abort = nh.advertise<std_msgs::Bool>("abort_mission", 1);
+    // pub_path = nh.advertise< nav_msgs::Path > ("path", 1);
+    // pub_vel = nh.advertise< geometry_msgs::Twist >("cmd_vel", 1);
     ros::Rate loop_rate(1);
 
-    
-    if (false == initGL(&argc, (char **)argv)) {
+    if (false == initGL(&argc, (char **)argv))
+    {
         return 4;
     }
 
@@ -986,11 +1129,12 @@ int main(int argc, char *argv[]){
     glutMotionFunc(motion);
     glutIdleFunc(idle);
     glutMainLoop();
-	
-	return 0;
+
+    return 0;
 }
 
-bool initGL(int *argc, char **argv) {
+bool initGL(int *argc, char **argv)
+{
     glutInit(argc, argv);
     glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE);
     glutInitWindowSize(window_width, window_height);
@@ -1000,7 +1144,7 @@ bool initGL(int *argc, char **argv) {
     glutReshapeFunc(reshape);
 
     // default initialization
-    //glClearColor(0.0, 0.0, 0.0, 1.0);
+    // glClearColor(0.0, 0.0, 0.0, 1.0);
     glClearColor(1.0, 1.0, 1.0, 1.0);
     glEnable(GL_DEPTH_TEST);
 
@@ -1010,12 +1154,12 @@ bool initGL(int *argc, char **argv) {
     // projection
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(60.0, (GLfloat) window_width / (GLfloat) window_height, 0.01,
+    gluPerspective(60.0, (GLfloat)window_width / (GLfloat)window_height, 0.01,
                    10000.0);
 
     ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); //(void)io;
-    //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+    ImGuiIO &io = ImGui::GetIO(); //(void)io;
+    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 
     ImGui::StyleColorsDark();
     ImGui_ImplGLUT_Init();
@@ -1024,50 +1168,55 @@ bool initGL(int *argc, char **argv) {
     return true;
 }
 
-void display() {
-    ImGuiIO& io = ImGui::GetIO();
-	glViewport(0, 0, (GLsizei)io.DisplaySize.x, (GLsizei)io.DisplaySize.y);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	float ratio = float(io.DisplaySize.x) / float(io.DisplaySize.y);
+void display()
+{
+    ImGuiIO &io = ImGui::GetIO();
+    glViewport(0, 0, (GLsizei)io.DisplaySize.x, (GLsizei)io.DisplaySize.y);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    float ratio = float(io.DisplaySize.x) / float(io.DisplaySize.y);
 
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 
-	reshape((GLsizei)io.DisplaySize.x, (GLsizei)io.DisplaySize.y);
-    //if(!params.planner_mode){
+    reshape((GLsizei)io.DisplaySize.x, (GLsizei)io.DisplaySize.y);
+    // if(!params.planner_mode){
     glTranslatef(translate_x, translate_y, translate_z);
     glRotatef(rotate_x, 1.0, 0.0, 0.0);
     glRotatef(rotate_y, 0.0, 0.0, 1.0);
     //}
 
-	main_loop(true);
+    main_loop(true);
 
     glBegin(GL_LINES);
-        glColor3f(1.0f, 0.0f, 0.0f);
-        glVertex3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(10.0f, 0.0f, 0.0f);
+    glColor3f(1.0f, 0.0f, 0.0f);
+    glVertex3f(0.0f, 0.0f, 0.0f);
+    glVertex3f(10.0f, 0.0f, 0.0f);
 
-        glColor3f(0.0f, 1.0f, 0.0f);
-        glVertex3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(0.0f, 10.0f, 0.0f);
+    glColor3f(0.0f, 1.0f, 0.0f);
+    glVertex3f(0.0f, 0.0f, 0.0f);
+    glVertex3f(0.0f, 10.0f, 0.0f);
 
-        glColor3f(0.0f, 0.0f, 1.0f);
-        glVertex3f(0.0f, 0.0f, 0.0f);
-        glVertex3f(0.0f, 0.0f, 10.0f);
-	glEnd();
+    glColor3f(0.0f, 0.0f, 1.0f);
+    glVertex3f(0.0f, 0.0f, 0.0f);
+    glVertex3f(0.0f, 0.0f, 10.0f);
+    glEnd();
 
     {
-    std::lock_guard<std::mutex> lck(point_clouds_lock);
+        std::lock_guard<std::mutex> lck(point_clouds_lock);
         glPointSize(params.pcs_point_size);
-        for(const auto &pc:point_clouds){
-            if(pc.show){
+        for (const auto &pc : point_clouds)
+        {
+            if (pc.show)
+            {
                 glBegin(GL_POINTS);
-                //for(const auto &p:pc.points){
-                for(int i = 0 ; i < pc.points.size(); i += pc.decimation){
-                    const auto & p = pc.points[i];
-                    if(p.point.z() < params.visualization_height_threshold){
+                // for(const auto &p:pc.points){
+                for (int i = 0; i < pc.points.size(); i += pc.decimation)
+                {
+                    const auto &p = pc.points[i];
+                    if (p.point.z() < params.visualization_height_threshold)
+                    {
                         glColor3f(p.intensity / 256.0 + params.intensity_offset, p.intensity / 256.0 + params.intensity_offset, p.intensity / 256.0 + params.intensity_offset);
                         glVertex3f(p.point.x(), p.point.y(), p.point.z());
                     }
@@ -1078,14 +1227,16 @@ void display() {
         glPointSize(1);
     }
 
-    if(params.show_buckets)
+    if (params.show_buckets)
     {
         glPointSize(params.pcs_point_size);
         std::lock_guard<std::mutex> lck(current_map_lock);
-        glColor3f(1,0,0);
+        glColor3f(1, 0, 0);
         glBegin(GL_POINTS);
-        for(const auto &p:current_map){
-            if(p.z() < params.visualization_height_threshold){
+        for (const auto &p : current_map)
+        {
+            if (p.z() < params.visualization_height_threshold)
+            {
                 glVertex3f(p.x(), p.y(), p.z());
             }
         }
@@ -1093,28 +1244,28 @@ void display() {
         glPointSize(1);
     }
 
-    //robot pose
+    // robot pose
     {
         std::lock_guard<std::mutex> lck(params.current_robot_pose_lock);
         glBegin(GL_LINES);
-            const auto &p = params.current_robot_pose;
-            glColor3f(1.0f, 0.0f, 0.0f);
-            glVertex3f(p(0,3), p(1,3), 0);
-            glVertex3f(p(0,3) + p(0,0)*20, p(1,3) + p(1,0)*20, 0);
+        const auto &p = params.current_robot_pose;
+        glColor3f(1.0f, 0.0f, 0.0f);
+        glVertex3f(p(0, 3), p(1, 3), 0);
+        glVertex3f(p(0, 3) + p(0, 0) * 20, p(1, 3) + p(1, 0) * 20, 0);
 
-            glColor3f(0.0f, 1.0f, 0.0f);
-            glVertex3f(p(0,3), p(1,3), 0);
-            glVertex3f(p(0,3) + p(0,1), p(1,3) + p(1,1), 0);
+        glColor3f(0.0f, 1.0f, 0.0f);
+        glVertex3f(p(0, 3), p(1, 3), 0);
+        glVertex3f(p(0, 3) + p(0, 1), p(1, 3) + p(1, 1), 0);
 
-            glColor3f(0.0f, 0.0f, 1.0f);
-            glVertex3f(p(0,3), p(1,3), 0);
-            glVertex3f(p(0,3) + p(0,2), p(1,3) + p(1,2), 0);
-	    glEnd();
+        glColor3f(0.0f, 0.0f, 1.0f);
+        glVertex3f(p(0, 3), p(1, 3), 0);
+        glVertex3f(p(0, 3) + p(0, 2), p(1, 3) + p(1, 2), 0);
+        glEnd();
 
         Eigen::Vector3d x1(-0.2, 0, 0);
-        Eigen::Vector3d x2( 0.2, 0, 0);
+        Eigen::Vector3d x2(0.2, 0, 0);
 
-        Eigen::Vector3d y1(0,-0.2, 0);
+        Eigen::Vector3d y1(0, -0.2, 0);
         Eigen::Vector3d y2(0, 0.2, 0);
 
         Eigen::Vector3d x1t = p * x1;
@@ -1124,185 +1275,192 @@ void display() {
 
         glColor3f(0.0, 0.0, 0.0);
         glBegin(GL_LINES);
-            glVertex3f(x1t.x(), x1t.y(), x1t.z());
-            glVertex3f(x2t.x(), x2t.y(), x2t.z());
+        glVertex3f(x1t.x(), x1t.y(), x1t.z());
+        glVertex3f(x2t.x(), x2t.y(), x2t.z());
 
-            glVertex3f(y1t.x(), y1t.y(), y1t.z());
-            glVertex3f(y2t.x(), y2t.y(), y2t.z());
+        glVertex3f(y1t.x(), y1t.y(), y1t.z());
+        glVertex3f(y2t.x(), y2t.y(), y2t.z());
         glEnd();
 
         glColor3f(0.0, 0.2, 0.5);
         glBegin(GL_LINES);
-            Eigen::Vector3d v0b(-params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, -params.robot_h * 0.5);
-            Eigen::Vector3d v1b( params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, -params.robot_h * 0.5);
-            Eigen::Vector3d v2b( params.robot_l * 0.5 /*+ params.calib_x_offset*/,  params.robot_w * 0.5, -params.robot_h * 0.5);
-            Eigen::Vector3d v3b(-params.robot_l * 0.5 /*+ params.calib_x_offset*/,  params.robot_w * 0.5, -params.robot_h * 0.5);
-            Eigen::Vector3d v0u(-params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5,  params.robot_h * 0.5);
-            Eigen::Vector3d v1u( params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5,  params.robot_h * 0.5);
-            Eigen::Vector3d v2u( params.robot_l * 0.5 /*+ params.calib_x_offset*/,  params.robot_w * 0.5,  params.robot_h * 0.5);
-            Eigen::Vector3d v3u(-params.robot_l * 0.5 /*+ params.calib_x_offset*/,  params.robot_w * 0.5,  params.robot_h * 0.5);
+        Eigen::Vector3d v0b(-params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, -params.robot_h * 0.5);
+        Eigen::Vector3d v1b(params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, -params.robot_h * 0.5);
+        Eigen::Vector3d v2b(params.robot_l * 0.5 /*+ params.calib_x_offset*/, params.robot_w * 0.5, -params.robot_h * 0.5);
+        Eigen::Vector3d v3b(-params.robot_l * 0.5 /*+ params.calib_x_offset*/, params.robot_w * 0.5, -params.robot_h * 0.5);
+        Eigen::Vector3d v0u(-params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, params.robot_h * 0.5);
+        Eigen::Vector3d v1u(params.robot_l * 0.5 /*+ params.calib_x_offset*/, -params.robot_w * 0.5, params.robot_h * 0.5);
+        Eigen::Vector3d v2u(params.robot_l * 0.5 /*+ params.calib_x_offset*/, params.robot_w * 0.5, params.robot_h * 0.5);
+        Eigen::Vector3d v3u(-params.robot_l * 0.5 /*+ params.calib_x_offset*/, params.robot_w * 0.5, params.robot_h * 0.5);
 
-            Eigen::Vector3d v0bt = p * v0b;
-            Eigen::Vector3d v1bt = p * v1b;
-            Eigen::Vector3d v2bt = p * v2b;
-            Eigen::Vector3d v3bt = p * v3b;
-            Eigen::Vector3d v0ut = p * v0u;
-            Eigen::Vector3d v1ut = p * v1u;
-            Eigen::Vector3d v2ut = p * v2u;
-            Eigen::Vector3d v3ut = p * v3u;
+        Eigen::Vector3d v0bt = p * v0b;
+        Eigen::Vector3d v1bt = p * v1b;
+        Eigen::Vector3d v2bt = p * v2b;
+        Eigen::Vector3d v3bt = p * v3b;
+        Eigen::Vector3d v0ut = p * v0u;
+        Eigen::Vector3d v1ut = p * v1u;
+        Eigen::Vector3d v2ut = p * v2u;
+        Eigen::Vector3d v3ut = p * v3u;
 
-            glVertex3f(v0bt.x(), v0bt.y(), v0bt.z());
-            glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
+        glVertex3f(v0bt.x(), v0bt.y(), v0bt.z());
+        glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
 
-            //glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
-            //glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
+        // glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
+        // glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
 
-            glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
-            glVertex3f(v3bt.x(), v3bt.y(), v3bt.z());
+        glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
+        glVertex3f(v3bt.x(), v3bt.y(), v3bt.z());
 
-            glVertex3f(v0bt.x(), v0bt.y(), v0bt.z());
-            glVertex3f(v3bt.x(), v3bt.y(), v3bt.z());
-            //
-            glVertex3f(v0ut.x(), v0ut.y(), v0ut.z());
-            glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
+        glVertex3f(v0bt.x(), v0bt.y(), v0bt.z());
+        glVertex3f(v3bt.x(), v3bt.y(), v3bt.z());
+        //
+        glVertex3f(v0ut.x(), v0ut.y(), v0ut.z());
+        glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
 
-            //glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
-            //glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
+        // glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
+        // glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
 
-            glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
-            glVertex3f(v3ut.x(), v3ut.y(), v3ut.z());
+        glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
+        glVertex3f(v3ut.x(), v3ut.y(), v3ut.z());
 
-            glVertex3f(v0ut.x(), v0ut.y(), v0ut.z());
-            glVertex3f(v3ut.x(), v3ut.y(), v3ut.z());
-            //
-            glVertex3f(v0bt.x(), v0bt.y(), v0bt.z());
-            glVertex3f(v0ut.x(), v0ut.y(), v0ut.z());
+        glVertex3f(v0ut.x(), v0ut.y(), v0ut.z());
+        glVertex3f(v3ut.x(), v3ut.y(), v3ut.z());
+        //
+        glVertex3f(v0bt.x(), v0bt.y(), v0bt.z());
+        glVertex3f(v0ut.x(), v0ut.y(), v0ut.z());
 
-            //glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
-            //glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
+        // glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
+        // glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
 
-            //glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
-            //glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
+        // glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
+        // glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
 
-            glVertex3f(v3bt.x(), v3bt.y(), v3bt.z());
-            glVertex3f(v3ut.x(), v3ut.y(), v3ut.z());
+        glVertex3f(v3bt.x(), v3bt.y(), v3bt.z());
+        glVertex3f(v3ut.x(), v3ut.y(), v3ut.z());
 
-            glColor3f(0, 1, 1);
-            glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
-            glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
+        glColor3f(0, 1, 1);
+        glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
+        glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
 
-            glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
-            glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
+        glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
+        glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
 
-            glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
-            glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
+        glVertex3f(v1bt.x(), v1bt.y(), v1bt.z());
+        glVertex3f(v1ut.x(), v1ut.y(), v1ut.z());
 
-            glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
-            glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
+        glVertex3f(v2bt.x(), v2bt.y(), v2bt.z());
+        glVertex3f(v2ut.x(), v2ut.y(), v2ut.z());
 
         glEnd();
     }
 
-    //mission goal
+    // mission goal
     {
         std::lock_guard<std::mutex> lckp(params.current_robot_pose_lock);
         std::lock_guard<std::mutex> lckg(params.current_mission_goal_lock);
 
         glBegin(GL_LINES);
-            const auto &p = params.current_robot_pose;
-            const auto &g = params.current_mission_goal;
-            glColor3f(1.0f, 0.0f, 1.0f);
-            glVertex3f(p(0,3), p(1,3), p(2,3));
-            glVertex3f(g(0,3), g(1,3), g(2,3));
-	    glEnd(); 
+        const auto &p = params.current_robot_pose;
+        const auto &g = params.current_mission_goal;
+        glColor3f(1.0f, 0.0f, 1.0f);
+        glVertex3f(p(0, 3), p(1, 3), p(2, 3));
+        glVertex3f(g(0, 3), g(1, 3), g(2, 3));
+        glEnd();
 
         glLineWidth(2);
         glBegin(GL_LINES);
-            glColor3f(1.0f, 1.0f, 0.0f);
-            glVertex3f(g(0,3), g(1,3), g(2,3));
-            glVertex3f(g(0,3) + g(0,0) * 0.5, g(1,3) + g(1,0) * 0.5, g(2,3) + g(2,0) * 0.5);
-        glEnd(); 
+        glColor3f(1.0f, 1.0f, 0.0f);
+        glVertex3f(g(0, 3), g(1, 3), g(2, 3));
+        glVertex3f(g(0, 3) + g(0, 0) * 0.5, g(1, 3) + g(1, 0) * 0.5, g(2, 3) + g(2, 0) * 0.5);
+        glEnd();
         glLineWidth(1);
     }
-    
-    //multiple goals
+
+    // multiple goals
     {
         std::lock_guard<std::mutex> lck(multiple_goals_lock);
 
-        glColor3f(1,0,0);
+        glColor3f(1, 0, 0);
         glPointSize(3);
         glBegin(GL_POINTS);
-        for(const auto &p:multiple_goals){
-            glVertex3f(p.goal(0,3), p.goal(1,3), p.goal(2,3));
+        for (const auto &p : multiple_goals[multiple_goals_working_index])
+        {
+            glVertex3f(p.goal(0, 3), p.goal(1, 3), p.goal(2, 3));
         }
         glEnd();
         glPointSize(1);
 
         glBegin(GL_LINE_STRIP);
-        for(const auto &p:multiple_goals){
-            glVertex3f(p.goal(0,3), p.goal(1,3), p.goal(2,3));
+        for (const auto &p : multiple_goals[multiple_goals_working_index])
+        {
+            glVertex3f(p.goal(0, 3), p.goal(1, 3), p.goal(2, 3));
         }
         glEnd();
 
-        glColor3f(0,0,0);
+        glColor3f(0, 0, 0);
         glLineWidth(2);
         glBegin(GL_LINES);
-        for(const auto &p:multiple_goals){
-            glVertex3f(p.goal(0,3), p.goal(1,3), p.goal(2,3));
-            glVertex3f(p.goal(0,3) + p.goal(0, 0) * 0.3, p.goal(1,3) + p.goal(1, 0) * 0.3, p.goal(2, 3) + p.goal(2, 0) * 0.3);
+        for (const auto &p : multiple_goals[multiple_goals_working_index])
+        {
+            glVertex3f(p.goal(0, 3), p.goal(1, 3), p.goal(2, 3));
+            glVertex3f(p.goal(0, 3) + p.goal(0, 0) * 0.3, p.goal(1, 3) + p.goal(1, 0) * 0.3, p.goal(2, 3) + p.goal(2, 0) * 0.3);
         }
         glEnd();
         glLineWidth(1);
 
-        glColor3f(0,0,0);
-        for(int i = 0; i < multiple_goals.size(); i++){
-            glRasterPos3f(multiple_goals[i].goal(0,3), multiple_goals[i].goal(1,3) + 0.4, multiple_goals[i].goal(2,3) + 0.2);
-		    glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, std::to_string(i).c_str()[0]);
+        glColor3f(0, 0, 0);
+        for (int i = 0; i < multiple_goals[multiple_goals_working_index].size(); i++)
+        {
+            glRasterPos3f(multiple_goals[multiple_goals_working_index][i].goal(0, 3), multiple_goals[multiple_goals_working_index][i].goal(1, 3) + 0.4, multiple_goals[multiple_goals_working_index][i].goal(2, 3) + 0.2);
+            // glutBitmapCharacter(GLUT_BITMAP_TIMES_ROMAN_24, std::to_string(i).c_str()[0]);
+            glutBitmapString(GLUT_BITMAP_TIMES_ROMAN_24, (const unsigned char *)std::to_string(i).c_str());
         }
-        
-        if(multiple_goals.size() >= 2){
-            glColor3f (0,0,0);
-            for(int i = 0; i < params.num_scans_from_end; i++){
-                if(multiple_goals.size() - 1 - i >= 0){
-                    Eigen::Affine3d pose = multiple_goals[multiple_goals.size() - 1 - i].goal;
-                    glBegin(GL_LINES);
-                        glVertex3f(pose(0,3) - 0.5, pose(1,3), 0);
-                        glVertex3f(pose(0,3) + 0.5, pose(1,3), 0);
 
-                        glVertex3f(pose(0,3), pose(1,3) - 0.5, 0);
-                        glVertex3f(pose(0,3), pose(1,3) + 0.5, 0);
+        if (multiple_goals[multiple_goals_working_index].size() >= 2)
+        {
+            glColor3f(0, 0, 0);
+            for (int i = 0; i < params.num_scans_from_end; i++)
+            {
+                if (multiple_goals[multiple_goals_working_index].size() - 1 - i >= 0)
+                {
+                    Eigen::Affine3d pose = multiple_goals[multiple_goals_working_index][multiple_goals[multiple_goals_working_index].size() - 1 - i].goal;
+                    glBegin(GL_LINES);
+                    glVertex3f(pose(0, 3) - 0.5, pose(1, 3), 0);
+                    glVertex3f(pose(0, 3) + 0.5, pose(1, 3), 0);
+
+                    glVertex3f(pose(0, 3), pose(1, 3) - 0.5, 0);
+                    glVertex3f(pose(0, 3), pose(1, 3) + 0.5, 0);
                     glEnd();
                 }
             }
         }
     }
 
-
-    if(params.planner_mode){
+    if (params.planner_mode)
+    {
         glColor3f(0, 1, 0);
         glBegin(GL_LINES);
-            glVertex3f(params.goal_arrow_begin.x(), params.goal_arrow_begin.y(), params.goal_arrow_begin.z());
-            glVertex3f(params.goal_arrow_end.x(), params.goal_arrow_end.y(), params.goal_arrow_end.z());
+        glVertex3f(params.goal_arrow_begin.x(), params.goal_arrow_begin.y(), params.goal_arrow_begin.z());
+        glVertex3f(params.goal_arrow_end.x(), params.goal_arrow_end.y(), params.goal_arrow_end.z());
         glEnd();
 
         glPointSize(3);
         glBegin(GL_POINTS);
-            glVertex3f(params.goal_arrow_begin.x(), params.goal_arrow_begin.y(), params.goal_arrow_begin.z());
+        glVertex3f(params.goal_arrow_begin.x(), params.goal_arrow_begin.y(), params.goal_arrow_begin.z());
         glEnd();
         glPointSize(1);
     }
-    
-    
-    
 
     ImGui_ImplOpenGL2_NewFrame();
-	ImGui_ImplGLUT_NewFrame();
-	project_gui(params);
+    ImGui_ImplGLUT_NewFrame();
+    project_gui(params);
 
     {
         std::lock_guard<std::mutex> lck(multiple_goals_lock);
-        for(int i = 0; i < multiple_goals.size(); i++){
-            if (multiple_goals[i].gizmo){
+        for (int i = 0; i < multiple_goals[multiple_goals_working_index].size(); i++)
+        {
+            if (multiple_goals[multiple_goals_working_index][i].gizmo)
+            {
                 ImGuiIO &io = ImGui::GetIO();
                 // ImGuizmo -----------------------------------------------
                 ImGuizmo::BeginFrame();
@@ -1316,7 +1474,7 @@ void display() {
                 glGetFloatv(GL_MODELVIEW_MATRIX, modelview);
 
                 ImGuizmo::Manipulate(&modelview[0], &projection[0], ImGuizmo::TRANSLATE | ImGuizmo::ROTATE_Z | ImGuizmo::ROTATE_X | ImGuizmo::ROTATE_Y, ImGuizmo::WORLD, m_gizmo, NULL);
-            
+
                 Eigen::Affine3d m_g = Eigen::Affine3d::Identity();
 
                 m_g(0, 0) = m_gizmo[0];
@@ -1333,28 +1491,32 @@ void display() {
                 m_g(3, 2) = m_gizmo[11];
                 m_g(0, 3) = m_gizmo[12];
                 m_g(1, 3) = m_gizmo[13];
-                m_g(2, 3) = 0.0;//m_gizmo[14];
+                m_g(2, 3) = 0.0; // m_gizmo[14];
                 m_g(3, 3) = m_gizmo[15];
 
-                multiple_goals[i].goal = m_g;
+                multiple_goals[multiple_goals_working_index][i].goal = m_g;
             }
         }
     }
 
-	ImGui::Render();
-	ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
+    ImGui::Render();
+    ImGui_ImplOpenGL2_RenderDrawData(ImGui::GetDrawData());
 
-	glutSwapBuffers();
-	glutPostRedisplay();
+    glutSwapBuffers();
+    glutPostRedisplay();
 }
 
-void mouse(int glut_button, int state, int x, int y) {
-    ImGuiIO& io = ImGui::GetIO();
+void mouse(int glut_button, int state, int x, int y)
+{
+    ImGuiIO &io = ImGui::GetIO();
     io.MousePos = ImVec2((float)x, (float)y);
     int button = -1;
-    if (glut_button == GLUT_LEFT_BUTTON) button = 0;
-    if (glut_button == GLUT_RIGHT_BUTTON) button = 1;
-    if (glut_button == GLUT_MIDDLE_BUTTON) button = 2;
+    if (glut_button == GLUT_LEFT_BUTTON)
+        button = 0;
+    if (glut_button == GLUT_RIGHT_BUTTON)
+        button = 1;
+    if (glut_button == GLUT_MIDDLE_BUTTON)
+        button = 2;
     if (button != -1 && state == GLUT_DOWN)
         io.MouseDown[button] = true;
     if (button != -1 && state == GLUT_UP)
@@ -1362,56 +1524,61 @@ void mouse(int glut_button, int state, int x, int y) {
 
     if (!io.WantCaptureMouse)
     {
-        if (state == GLUT_DOWN) {
+        if (state == GLUT_DOWN)
+        {
             mouse_buttons |= 1 << glut_button;
-            if(params.planner_mode){
+            if (params.planner_mode)
+            {
                 params.goal_arrow_begin = GLWidgetGetOGLPos(x, y);
                 params.goal_arrow_end = params.goal_arrow_begin;
             }
-
-
-        } else if (state == GLUT_UP) {
+        }
+        else if (state == GLUT_UP)
+        {
             mouse_buttons = 0;
 
-            if(params.planner_mode){
+            if (params.planner_mode)
+            {
                 params.goal_arrow_end = GLWidgetGetOGLPos(x, y);
 
-                if(params.single_goal_forward){
+                if (params.single_goal_forward)
+                {
                     double norm = (params.goal_arrow_begin - params.goal_arrow_end).norm();
-                    if(norm > 0.1){
+                    if (norm > 0.1)
+                    {
                         static int count = 0;
-                        std::cout << "[" << count++ <<"] sending single_goal_forward" << std::endl;
+                        std::cout << "[" << count++ << "] sending single_goal_forward" << std::endl;
 
-                        //pub_single_goal_forward
+                        // pub_single_goal_forward
                         Eigen::Vector3d x = params.goal_arrow_end - params.goal_arrow_begin;
                         x = x / (params.goal_arrow_end - params.goal_arrow_begin).norm();
-                        Eigen::Vector3d z(0,0,1);
+                        Eigen::Vector3d z(0, 0, 1);
 
                         Eigen::Vector3d y = z.cross(x);
-                        //std::cout << y << std::endl;
+                        // std::cout << y << std::endl;
 
                         Eigen::Affine3d goal = Eigen::Affine3d::Identity();
-                        goal(0,0) = x.x();
-                        goal(1,0) = x.y();
-                        goal(2,0) = x.z();
+                        goal(0, 0) = x.x();
+                        goal(1, 0) = x.y();
+                        goal(2, 0) = x.z();
 
-                        goal(0,1) = y.x();
-                        goal(1,1) = y.y();
-                        goal(2,1) = y.z();
+                        goal(0, 1) = y.x();
+                        goal(1, 1) = y.y();
+                        goal(2, 1) = y.z();
 
-                        goal(0,2) = z.x();
-                        goal(1,2) = z.y();
-                        goal(2,2) = z.z();
+                        goal(0, 2) = z.x();
+                        goal(1, 2) = z.y();
+                        goal(2, 2) = z.z();
 
-                        goal(0,3) = params.goal_arrow_begin.x();
-                        goal(1,3) = params.goal_arrow_begin.y();
-                        goal(2,3) = params.goal_arrow_begin.z();
+                        goal(0, 3) = params.goal_arrow_begin.x();
+                        goal(1, 3) = params.goal_arrow_begin.y();
+                        goal(2, 3) = params.goal_arrow_begin.z();
 
                         nav_msgs::Path destination;
                         destination.header.frame_id = "odom";
                         destination.header.stamp = ros::Time::now();
                         destination.poses.resize(1);
-                        auto & p = destination.poses[0];
+                        auto &p = destination.poses[0];
                         p.pose.position.x = goal.translation().x();
                         p.pose.position.y = goal.translation().y();
                         p.pose.position.z = goal.translation().z();
@@ -1421,46 +1588,48 @@ void mouse(int glut_button, int state, int x, int y) {
                         p.pose.orientation.x = q.x();
                         p.pose.orientation.y = q.y();
                         p.pose.orientation.z = q.z();
-//pub_multiple_goals_to_robot
+                        // pub_multiple_goals_to_robot
                         pub_single_goal_forward.publish(destination);
 
-                        params.goal_arrow_begin = {0,0,0};
-                        params.goal_arrow_end = {0,0,0};
+                        params.goal_arrow_begin = {0, 0, 0};
+                        params.goal_arrow_end = {0, 0, 0};
                     }
                 }
-                if(params.multiple_goals){
+                if (params.multiple_goals)
+                {
                     std::lock_guard<std::mutex> lck(multiple_goals_lock);
                     double norm = (params.goal_arrow_begin - params.goal_arrow_end).norm();
-                    if(norm > 0.1){
+                    if (norm > 0.1)
+                    {
                         static int count = 0;
-                        std::cout << "[" << count++ <<"] add goal" << std::endl;
+                        std::cout << "[" << count++ << "] add goal" << std::endl;
                         Eigen::Vector3d x = params.goal_arrow_end - params.goal_arrow_begin;
                         x = x / (params.goal_arrow_end - params.goal_arrow_begin).norm();
-                        Eigen::Vector3d z(0,0,1);
+                        Eigen::Vector3d z(0, 0, 1);
                         Eigen::Vector3d y = z.cross(x);
                         Eigen::Affine3d goal = Eigen::Affine3d::Identity();
-                        goal(0,0) = x.x();
-                        goal(1,0) = x.y();
-                        goal(2,0) = x.z();
+                        goal(0, 0) = x.x();
+                        goal(1, 0) = x.y();
+                        goal(2, 0) = x.z();
 
-                        goal(0,1) = y.x();
-                        goal(1,1) = y.y();
-                        goal(2,1) = y.z();
+                        goal(0, 1) = y.x();
+                        goal(1, 1) = y.y();
+                        goal(2, 1) = y.z();
 
-                        goal(0,2) = z.x();
-                        goal(1,2) = z.y();
-                        goal(2,2) = z.z();
+                        goal(0, 2) = z.x();
+                        goal(1, 2) = z.y();
+                        goal(2, 2) = z.z();
 
-                        goal(0,3) = params.goal_arrow_begin.x();
-                        goal(1,3) = params.goal_arrow_begin.y();
-                        goal(2,3) = params.goal_arrow_begin.z();
+                        goal(0, 3) = params.goal_arrow_begin.x();
+                        goal(1, 3) = params.goal_arrow_begin.y();
+                        goal(2, 3) = params.goal_arrow_begin.z();
 
-                        params.goal_arrow_begin = {0,0,0};
-                        params.goal_arrow_end = {0,0,0};
-                        MuLtipleGoal _goal;
+                        params.goal_arrow_begin = {0, 0, 0};
+                        params.goal_arrow_end = {0, 0, 0};
+                        Goal _goal;
                         _goal.goal = goal;
                         _goal.gizmo = false;
-                        multiple_goals.push_back(_goal);
+                        multiple_goals[multiple_goals_working_index].push_back(_goal);
                     }
                 }
             }
@@ -1470,25 +1639,34 @@ void mouse(int glut_button, int state, int x, int y) {
     }
 }
 
-void motion(int x, int y) {
-    ImGuiIO& io = ImGui::GetIO();
+void motion(int x, int y)
+{
+    ImGuiIO &io = ImGui::GetIO();
     io.MousePos = ImVec2((float)x, (float)y);
 
     if (!io.WantCaptureMouse)
     {
-        if(params.planner_mode){
+        if (params.planner_mode)
+        {
             params.goal_arrow_end = GLWidgetGetOGLPos(x, y);
-        }else{
+        }
+        else
+        {
             float dx, dy;
-            dx = (float) (x - mouse_old_x);
-            dy = (float) (y - mouse_old_y);
-            gui_mouse_down = mouse_buttons>0;
-            if (mouse_buttons & 1) {
+            dx = (float)(x - mouse_old_x);
+            dy = (float)(y - mouse_old_y);
+            gui_mouse_down = mouse_buttons > 0;
+            if (mouse_buttons & 1)
+            {
                 rotate_x += dy * 0.2f;
                 rotate_y += dx * 0.2f;
-            } else if (mouse_buttons & 4) {
+            }
+            else if (mouse_buttons & 4)
+            {
                 translate_z += dy * 0.05f;
-            } else if (mouse_buttons & 3) {
+            }
+            else if (mouse_buttons & 3)
+            {
                 translate_x += dx * 0.05f;
                 translate_y -= dy * 0.05f;
             }
@@ -1499,28 +1677,30 @@ void motion(int x, int y) {
     glutPostRedisplay();
 }
 
-void reshape(int w, int h) {
-    glViewport(0, 0, (GLsizei) w, (GLsizei) h);
+void reshape(int w, int h)
+{
+    glViewport(0, 0, (GLsizei)w, (GLsizei)h);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(60.0, (GLfloat) w / (GLfloat) h, 0.01, 10000.0);
+    gluPerspective(60.0, (GLfloat)w / (GLfloat)h, 0.01, 10000.0);
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 }
 
 void idle(void)
 {
-	glutPostRedisplay();
+    glutPostRedisplay();
 }
 
-void main_loop(bool render){
-	auto start = std::chrono::steady_clock::now();
+void main_loop(bool render)
+{
+    auto start = std::chrono::steady_clock::now();
 
     ros::spinOnce();
 
-	auto end = std::chrono::steady_clock::now();
-	std::chrono::duration<double> elapsed_seconds = end-start;
-	params.main_loop_time_execution = elapsed_seconds.count();
+    auto end = std::chrono::steady_clock::now();
+    std::chrono::duration<double> elapsed_seconds = end - start;
+    params.main_loop_time_execution = elapsed_seconds.count();
 }
 
 float distanceToPlane(const Plane &plane, const Eigen::Vector3d &p)
