@@ -2,7 +2,7 @@ This is an end-to-end open-source software for nuclear power plant inspection wi
 
 ![0](images/0.jpg)
 
-![1](images/1.png)
+![1](images/1.jpg)
 
 ![2](images/2.png)
 -----
