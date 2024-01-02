@@ -1,29 +1,10 @@
-ToDo --> change this help!!!
+This is an end-to-end open-source software for nuclear power plant inspection with mobile robot.
 
------
-1 krok
-#nowy terminal
-sshfs jackal:/ /home/station/Desktop/usb_on_jackal
-2
-#nowy terminal
-ssh jackal
-screen -S mandeye
-cd catkin_ws/src/enrich2019/devel/lib/mandeye_unicorn/
-./mandeye_unicorn ./mid360_config_lio.json 0 /mnt/usb/ /home/robot/enrich2023_data/
+![0](images/0.jpg)
 
-#nowy terminal
-cd enrich2019/devel/lib/mandeye_unicorn/
-./base_station_unicorn
+![1](images/1.jpg)
 
-
-#optional
-#nowy terminal
-ssh jackal
-cd catkin_ws/src/enrich2019/
-catkin_make
-
-lsusb
-lsblk
+![2](images/2.png)
 -----
 
 
