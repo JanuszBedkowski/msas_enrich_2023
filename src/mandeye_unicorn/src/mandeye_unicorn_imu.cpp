@@ -165,6 +165,9 @@ std::mutex mission_path_lock;
 Eigen::Affine3d mission_goal;
 MissionType mission_type = none;
 
+std::mutex my_imu_lock;
+Eigen::Affine3d m_imu;
+
 
 //publishers
 ros::Publisher pc_current_pub;
@@ -688,7 +691,9 @@ void ImuDataCallback(uint32_t handle, const uint8_t dev_type,  LivoxLidarEtherne
             mission_type = MissionType::abort_mission;
         }
     }
-
+    std::lock_guard<std::mutex> lck2(my_imu_lock);
+    //std::lock_guard<std::mutex> lck(my_imu_lock);
+    m_imu = t;
 }
 
 void pub_save_bucketsCallback(const std_msgs::Int32::Ptr &msg)
@@ -1248,7 +1253,16 @@ void save_laz_files()
 
 }
 
+Eigen::Affine3d imu_update = Eigen::Affine3d::Identity();
+
 void main_loop(bool render){
+    Eigen::Affine3d imu_prev;
+    {
+        std::lock_guard<std::mutex> lck2(my_imu_lock);
+        imu_prev = m_imu;
+    }
+
+
 	auto start = std::chrono::steady_clock::now();
 
 	std::vector<Point3Di> all_points;
@@ -1293,6 +1307,20 @@ void main_loop(bool render){
 		 	auto pose = trajectory[trajectory.size() - 1];
 			auto diff_pose = Eigen::Affine3d::Identity();
 
+
+            //imu_update
+            TaitBryanPose mp = pose_tait_bryan_from_affine_matrix(imu_update);
+            mp.om = 0;
+            mp.fi = 0;
+            mp.px = 0;
+            mp.py = 0;
+            mp.pz = 0;
+            std::cout << "ka[deg]: " << mp.ka * 180.0 / M_PI << std::endl;
+
+            Eigen::Affine3d mupdate = affine_matrix_from_pose_tait_bryan(mp);
+
+            pose = pose * mupdate;
+
 			//if(trajectory.size() > 2){
 			//	diff_pose = trajectory[trajectory.size() - 2].inverse() * trajectory[trajectory.size() - 1];
 			//}
@@ -1311,9 +1339,10 @@ void main_loop(bool render){
 			}
 			intermediate_trajectory[1](2,3) = params.calib_height_above_ground;
 			//trajectory.push_back(intermediate_trajectory[1]);
-			trajectory.push_back(trajectory[trajectory.size()-1] * (intermediate_trajectory[0].inverse()*intermediate_trajectory[1]));
+			//trajectory.push_back(trajectory[trajectory.size()-1] * (intermediate_trajectory[0].inverse()*intermediate_trajectory[1]));
+            trajectory.push_back(intermediate_trajectory[1]);
 			for(auto &p:decimated_points){
-				p.point = trajectory[trajectory.size()-1] * p.point;
+				p.point = /*trajectory[trajectory.size()-1] **/ intermediate_trajectory[1] * p.point;
 			}
 
 			if(params.update_map)update_rgd(Eigen::Vector3d(0.3, 0.3, 0.3), buckets, decimated_points);
@@ -1478,7 +1507,7 @@ void main_loop(bool render){
                             geometry_msgs::Twist twist;
                             twist.angular.z= -params.rot_speed_slow;
                             twist.linear.x = params.forward_speed_slow;
-                            pub_vel.publish(twist);  
+                            pub_vel.publish(twist);  std::cout << "j";
                         }
                     }
                 }else{
@@ -1939,6 +1968,14 @@ void main_loop(bool render){
 	std::chrono::duration<double> elapsed_seconds = end-start;
 	params.main_loop_time_execution = elapsed_seconds.count();
     std::cout << "timer main_loop: " << params.main_loop_time_execution << std::endl;
+
+    Eigen::Affine3d imu_after;
+    {
+        std::lock_guard<std::mutex> lck3(my_imu_lock);
+        imu_after = m_imu;
+    }
+
+    imu_update = imu_prev.inverse() * imu_after;
 }
 
 std::vector<Point3Di> decimate(const std::vector<Point3Di> &points, double bucket_x, double bucket_y, double bucket_z)
@@ -1997,7 +2034,7 @@ void optimize(std::vector<Point3Di> &intermediate_points, std::vector<Eigen::Aff
         if(buckets[index_of_bucket].number_of_points >= 5){
             Eigen::Matrix3d infm = buckets[index_of_bucket].cov.inverse();
 
-            double threshold = 10000.0;
+            double threshold = 1000000.0;
 
             if (infm(0, 0) > threshold)
                 continue;
@@ -2166,17 +2203,28 @@ void optimize(std::vector<Point3Di> &intermediate_points, std::vector<Eigen::Aff
         tripletListB.emplace_back(ir + 4, 0, delta(4,0));
         tripletListB.emplace_back(ir + 5, 0, delta(5,0));
 
-		double wa = 1.0 / (1.0 / 180.0 * M_PI );
-		wa *= wa;
+		//double wa = 1.0 / (1.0 / 180.0 * M_PI );
+		//wa *= wa;
+//
+        //tripletListP.emplace_back(ir ,    ir,     100);
+        //tripletListP.emplace_back(ir + 1, ir + 1, 100);
+        //tripletListP.emplace_back(ir + 2, ir + 2, 100);
+        //tripletListP.emplace_back(ir + 3, ir + 3, wa);
+        //tripletListP.emplace_back(ir + 4, ir + 4, wa);
+        //tripletListP.emplace_back(ir + 5, ir + 5, wa);
 
-        tripletListP.emplace_back(ir ,    ir,     100);
-        tripletListP.emplace_back(ir + 1, ir + 1, 100);
-        tripletListP.emplace_back(ir + 2, ir + 2, 100);
+        double wa = 0.01 / (1.0 / 180.0 * M_PI );
+		wa *= wa;
+		//std::cout << "wa " << wa << std::endl;
+        tripletListP.emplace_back(ir ,    ir,     10000);
+        tripletListP.emplace_back(ir + 1, ir + 1, 10000);
+        tripletListP.emplace_back(ir + 2, ir + 2, 10000);
         tripletListP.emplace_back(ir + 3, ir + 3, wa);
         tripletListP.emplace_back(ir + 4, ir + 4, wa);
         tripletListP.emplace_back(ir + 5, ir + 5, wa);
     }
 
+    std::cout << "j";
 	int ir = tripletListB.size();
 	tripletListA.emplace_back(ir     , 0, 1);
 	tripletListA.emplace_back(ir + 1 , 1, 1);

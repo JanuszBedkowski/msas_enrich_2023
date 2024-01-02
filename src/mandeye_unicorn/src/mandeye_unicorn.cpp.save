@@ -166,7 +166,8 @@ Eigen::Affine3d mission_goal;
 MissionType mission_type = none;
 
 
-//publishers
+//
+publishers
 ros::Publisher pc_current_pub;
 ros::Publisher current_map_pub;
 ros::Publisher pub_current_robot_pose;
@@ -1360,15 +1361,14 @@ void main_loop(bool render){
             //const auto &point = all_points[i];
 
             if(all_points[i].point.z() > 0.2 && all_points[i].point.z() < 1.0){
-                //if(all_points[i].point.x() > 0.1 && all_points[i].point.x() < 0.42){
-                if(all_points[i].point.x() > 0.1 && all_points[i].point.x() < 0.6){
+                if(all_points[i].point.x() > 0.1 && all_points[i].point.x() < 0.4){
                     if(all_points[i].point.y() > -0.25 && all_points[i].point.y() < 0.25){
                         std::cout << all_points[i].point.x() << " " << all_points[i].point.y() << " " << all_points[i].point.z() << std::endl;
                         count_front++;
                     }
                 }
 
-                if(all_points[i].point.x() > -0.7 && all_points[i].point.x() < -0.4){
+                if(all_points[i].point.x() > -0.45 && all_points[i].point.x() < -0.2){
                     if(all_points[i].point.y() > -0.25 && all_points[i].point.y() < 0.25){
                         std::cout << all_points[i].point.x() << " " << all_points[i].point.y() << " " << all_points[i].point.z() << std::endl;
                         count_back++;

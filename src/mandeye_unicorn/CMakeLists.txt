@@ -220,6 +220,12 @@ target_link_libraries(mandeye_unicorn ${OPENGL_LIBRARIES} ${PCL_LIBRARIES} ${GLU
  pthread glut  ${catkin_LIBRARIES} ${LIVOX_LIDAR_SDK_LIBRARY} laszip
 )
 
+add_executable(mandeye_unicorn_imu src/mandeye_unicorn_imu.cpp ${ImGui_Glut_src} ${FUSION} ${GIZMO})
+add_dependencies(mandeye_unicorn_imu ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(mandeye_unicorn_imu ${OPENGL_LIBRARIES} ${PCL_LIBRARIES} ${GLUT_glut_LIBRARY} 
+ pthread glut ${catkin_LIBRARIES} ${LIVOX_LIDAR_SDK_LIBRARY} laszip
+)
+
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
