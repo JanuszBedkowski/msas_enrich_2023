@@ -18,7 +18,7 @@ on robot
 ```
 screen -S mandeye
 cd ~/msas_enrich_2023/devel/lib/mandeye_unicorn
-./mandeye_unicorn ./mid360_config_lio.json 0 /mnt/usb/ ~/enrich2023_data/
+./mandeye_unicorn_imu ./mid360_config_lio.json 0 /mnt/usb/ ~/enrich2023_data/
 ```
 
 on base station
