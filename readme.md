@@ -7,10 +7,23 @@ This is an end-to-end open-source software for nuclear power plant inspection wi
 ![2](images/2.png)
 -----
 
+# base station program
+https://github.com/JanuszBedkowski/msas_enrich_2023/blob/master/src/mandeye_unicorn/src/base_station_unicorn.cpp
+
+# robot program
+https://github.com/JanuszBedkowski/msas_enrich_2023/blob/master/src/mandeye_unicorn/src/mandeye_unicorn_imu.cpp
+
+# run commands
+on robot
+screen -S mandeye
+cd ~/msas_enrich_2023/devel/lib/mandeye_unicorn
+./mandeye_unicorn ./mid360_config_lio.json 0 /mnt/usb/ ~/enrich2023_data/
+
+on base station
+cd ~/msas_enrich_2023/devel/lib/mandeye_unicorn/
+./base_station_unicorn
 
 # setting up jackal
-
-
  - install ubuntu 16.04
  - install ros-kinetic bare bone
 
