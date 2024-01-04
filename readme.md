@@ -15,13 +15,17 @@ https://github.com/JanuszBedkowski/msas_enrich_2023/blob/master/src/mandeye_unic
 
 # run commands
 on robot
+```
 screen -S mandeye
 cd ~/msas_enrich_2023/devel/lib/mandeye_unicorn
 ./mandeye_unicorn ./mid360_config_lio.json 0 /mnt/usb/ ~/enrich2023_data/
+```
 
 on base station
+```
 cd ~/msas_enrich_2023/devel/lib/mandeye_unicorn/
 ./base_station_unicorn
+```
 
 # setting up jackal
  - install ubuntu 16.04
