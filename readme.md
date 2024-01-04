@@ -1,4 +1,5 @@
 This is an end-to-end open-source software for nuclear power plant inspection with mobile robot.
+If You have any question please send info to januszbedkowski@gmail.com or add issue to this repository. 
 
 ![0](images/0.jpg)
 
